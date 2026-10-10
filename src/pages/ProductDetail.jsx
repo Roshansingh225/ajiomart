@@ -1,0 +1,129 @@
+import { Check, Heart, MessageCircle, ShoppingBag, Star } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useStore } from '../context/StoreContext.jsx';
+import { formatCurrency, getProductImages } from '../lib/catalog.js';
+
+export default function ProductDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { products, addToCart } = useStore();
+  const product = products.find((item) => item.id === id);
+  const images = getProductImages(product);
+  const [activeImage, setActiveImage] = useState('');
+  const [size, setSize] = useState('');
+  const [color, setColor] = useState('');
+  const [added, setAdded] = useState(false);
+
+  useEffect(() => {
+    if (product) {
+      setActiveImage(product.imageUrl);
+      setSize(product.sizes?.[0] || 'One size');
+      setColor(product.colors?.[0] || 'Default');
+    }
+  }, [product]);
+
+  if (!product) {
+    return (
+      <section className="page">
+        <p className="error">Product not found.</p>
+        <Link className="button primary" to="/shop">
+          Back to shop
+        </Link>
+      </section>
+    );
+  }
+
+  function handleAdd() {
+    if (added) {
+      navigate('/cart');
+      return;
+    }
+    addToCart(product, 1, { size, color });
+    setAdded(true);
+  }
+
+  const whatsappText = encodeURIComponent(`Hello Ajiomart, I am interested in ${product.name}.`);
+
+  return (
+    <section className="page detail-layout">
+      <div className="detail-gallery">
+        <img className="detail-image" src={activeImage || product.imageUrl} alt={product.name} />
+        {images.length > 1 && (
+          <div className="detail-thumbnails">
+            {images.map((imageUrl, index) => (
+              <button
+                type="button"
+                key={`${imageUrl}-${index}`}
+                className={imageUrl === activeImage ? 'detail-thumb active' : 'detail-thumb'}
+                onClick={() => setActiveImage(imageUrl)}
+                aria-label={`View image ${index + 1} of ${product.name}`}
+              >
+                <img src={imageUrl} alt={`${product.name} view ${index + 1}`} />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="detail-copy">
+        <p className="eyebrow">{product.category}</p>
+        <h1>{product.name}</h1>
+        <div className="rating-line">
+          <Star size={17} fill="currentColor" /> {product.rating} customer rating
+        </div>
+        <p>{product.description}</p>
+        <div className="detail-price-row">
+          <strong className="detail-price">{formatCurrency(product.price)}</strong>
+          {product.originalPrice > product.price && <span>{formatCurrency(product.originalPrice)}</span>}
+        </div>
+
+        <div className="option-block">
+          <strong>Color</strong>
+          <div className="chip-row">
+            {product.colors?.map((item) => (
+              <button key={item} className={color === item ? 'chip active' : 'chip'} onClick={() => setColor(item)}>
+                {item}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="option-block">
+          <strong>Size</strong>
+          <div className="chip-row">
+            {product.sizes?.map((item) => (
+              <button key={item} className={size === item ? 'chip active' : 'chip'} onClick={() => setSize(item)}>
+                {item}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <p className="stock-note">{product.stock > 0 ? `${product.stock} available` : 'Available on request'}</p>
+        <div className="button-row">
+          <button className={added ? 'button primary added-to-cart' : 'button primary'} onClick={handleAdd}>
+            {added ? (
+              <>
+                <Check size={18} /> Go to cart
+              </>
+            ) : (
+              <>
+                <ShoppingBag size={18} /> Add to cart
+              </>
+            )}
+          </button>
+          <button className="button secondary">
+            <Heart size={18} /> Save
+          </button>
+          <a className="button secondary" href={`https://wa.me/919999888877?text=${whatsappText}`} target="_blank" rel="noreferrer">
+            <MessageCircle size={18} /> WhatsApp
+          </a>
+        </div>
+        <Link to="/shop" className="back-link">
+          Back to shop
+        </Link>
+      </div>
+    </section>
+  );
+}
