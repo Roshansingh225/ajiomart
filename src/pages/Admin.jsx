@@ -6,6 +6,7 @@ import { categories, formatCurrency, orderStatuses, prettyStatus } from '../lib/
 
 const emptyProduct = {
   id: '',
+  slug: '',
   name: '',
   category: 'Dresses',
   price: '',
@@ -40,10 +41,10 @@ export default function Admin() {
     setForm(emptyProduct);
   }
 
-  function handleSaveProduct(event) {
+  async function handleSaveProduct(event) {
     event.preventDefault();
     try {
-      const saved = saveProduct({
+      const saved = await saveProduct({
         ...form,
         price: Number(form.price),
         originalPrice: Number(form.originalPrice || form.price),
@@ -61,6 +62,7 @@ export default function Admin() {
     setView('catalog');
     setForm({
       id: product.id,
+      slug: product.slug || '',
       name: product.name,
       category: product.category,
       price: product.price,
@@ -76,23 +78,35 @@ export default function Admin() {
     setMessage(`Editing ${product.name}.`);
   }
 
-  function handleDeleteProduct(product) {
+  async function handleDeleteProduct(product) {
     const confirmed = window.confirm(`Delete ${product.name}?`);
     if (!confirmed) return;
-    deleteProduct(product.id);
-    setMessage(`${product.name} deleted.`);
+    try {
+      await deleteProduct(product.id);
+      setMessage(`${product.name} deleted.`);
+    } catch (error) {
+      setMessage(error.message);
+    }
   }
 
-  function updateOrderField(order, field, value) {
-    updateOrder(order.id, { [field]: value });
-    setMessage(`Order ${order.id.slice(0, 10)} updated.`);
+  async function updateOrderField(order, field, value) {
+    try {
+      await updateOrder(order.id, { [field]: value });
+      setMessage(`Order ${order.id.slice(0, 10)} updated.`);
+    } catch (error) {
+      setMessage(error.message);
+    }
   }
 
-  function handleDeleteOrder(order) {
+  async function handleDeleteOrder(order) {
     const confirmed = window.confirm(`Delete order ${order.id.slice(0, 10)}?`);
     if (!confirmed) return;
-    deleteOrder(order.id);
-    setMessage('Order deleted.');
+    try {
+      await deleteOrder(order.id);
+      setMessage('Order deleted.');
+    } catch (error) {
+      setMessage(error.message);
+    }
   }
 
   return (

@@ -56,7 +56,7 @@ export default function CartCheckout() {
     return true;
   }
 
-  function checkout() {
+  async function checkout() {
     try {
       if (!user) {
         setStatus('Login to place your Ajiomart order.');
@@ -65,7 +65,8 @@ export default function CartCheckout() {
       }
       if (!validateShipping()) return;
 
-      const order = createOrder({ user, shipping, paymentMethod });
+      setStatus('Creating your order...');
+      const order = await createOrder({ user, shipping, paymentMethod });
       setSuccessState(order);
       setStatus('');
       window.setTimeout(() => navigate('/orders'), 1800);

@@ -851,6 +851,15 @@ select {
   background: var(--paper);
 }
 
+.access-card pre {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1rem;
+  color: var(--plum-dark);
+  background: var(--paper);
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

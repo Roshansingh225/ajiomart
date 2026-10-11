@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { useAuth } from './AuthContext.jsx';
 import {
   initialProducts,
   makeId,
@@ -8,19 +9,155 @@ import {
   STORAGE_KEYS,
   writeStorage,
 } from '../lib/catalog.js';
+import {
+  dbOrderToOrder,
+  dbProductToProduct,
+  hasSupabaseConfig,
+  productToDbProduct,
+  supabase,
+} from '../lib/supabase.js';
 
 const StoreContext = createContext(null);
 
-export function StoreProvider({ children }) {
-  const [products, setProducts] = useState(() =>
-    normalizeProducts(readStorage(STORAGE_KEYS.products, initialProducts)),
-  );
-  const [orders, setOrders] = useState(() => readStorage(STORAGE_KEYS.orders, []));
-  const [cartItems, setCartItems] = useState(() => readStorage(STORAGE_KEYS.cart, []));
+function splitList(value) {
+  if (Array.isArray(value)) return value;
+  return String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
-  useEffect(() => writeStorage(STORAGE_KEYS.products, products), [products]);
-  useEffect(() => writeStorage(STORAGE_KEYS.orders, orders), [orders]);
+function splitImageUrls(value) {
+  if (Array.isArray(value)) return value;
+  return String(value || '')
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function slugify(value) {
+  return String(value || 'ajiomart-product')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function prepareProduct(product) {
+  return normalizeProduct({
+    ...product,
+    id: product.id || makeId('product'),
+    slug: product.slug || slugify(product.name),
+    colors: splitList(product.colors),
+    sizes: splitList(product.sizes),
+    imageUrls: splitImageUrls(product.imageUrls),
+  });
+}
+
+function orderUpdatesToDb(updates) {
+  const payload = {};
+
+  if ('status' in updates) payload.status = updates.status;
+  if ('courierPartner' in updates) payload.courier_partner = updates.courierPartner;
+  if ('trackingNumber' in updates) payload.tracking_number = updates.trackingNumber || null;
+  if ('trackingUrl' in updates) payload.tracking_url = updates.trackingUrl || null;
+  if ('trackingNote' in updates) payload.tracking_note = updates.trackingNote || '';
+
+  return payload;
+}
+
+async function fetchSupabaseProducts() {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return normalizeProducts((data || []).map(dbProductToProduct));
+}
+
+async function fetchSupabaseOrders() {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*, order_items(*)')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data || []).map(dbOrderToOrder);
+}
+
+export function StoreProvider({ children }) {
+  const { user, isAdmin, loading: authLoading } = useAuth();
+  const [products, setProducts] = useState(() =>
+    hasSupabaseConfig ? [] : normalizeProducts(readStorage(STORAGE_KEYS.products, initialProducts)),
+  );
+  const [orders, setOrders] = useState(() => (hasSupabaseConfig ? [] : readStorage(STORAGE_KEYS.orders, [])));
+  const [cartItems, setCartItems] = useState(() => readStorage(STORAGE_KEYS.cart, []));
+  const [productsLoading, setProductsLoading] = useState(hasSupabaseConfig);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [storeError, setStoreError] = useState('');
+
+  useEffect(() => {
+    if (!hasSupabaseConfig) writeStorage(STORAGE_KEYS.products, products);
+  }, [products]);
+
+  useEffect(() => {
+    if (!hasSupabaseConfig) writeStorage(STORAGE_KEYS.orders, orders);
+  }, [orders]);
+
   useEffect(() => writeStorage(STORAGE_KEYS.cart, cartItems), [cartItems]);
+
+  useEffect(() => {
+    if (!supabase) return;
+
+    refreshProducts();
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (!supabase || authLoading) return;
+
+    if (!user) {
+      setOrders([]);
+      return;
+    }
+
+    refreshOrders();
+  }, [user?.id, isAdmin, authLoading]);
+
+  async function refreshProducts() {
+    if (!supabase) return products;
+
+    try {
+      setProductsLoading(true);
+      setStoreError('');
+      const nextProducts = await fetchSupabaseProducts();
+      setProducts(nextProducts);
+      return nextProducts;
+    } catch (error) {
+      setStoreError(error.message);
+      setProducts(normalizeProducts(initialProducts));
+      return [];
+    } finally {
+      setProductsLoading(false);
+    }
+  }
+
+  async function refreshOrders() {
+    if (!supabase) return orders;
+
+    try {
+      setOrdersLoading(true);
+      setStoreError('');
+      const nextOrders = await fetchSupabaseOrders();
+      setOrders(nextOrders);
+      return nextOrders;
+    } catch (error) {
+      setStoreError(error.message);
+      return [];
+    } finally {
+      setOrdersLoading(false);
+    }
+  }
 
   function addToCart(product, quantity = 1, choices = {}) {
     const cleanProduct = normalizeProduct(product);
@@ -67,16 +204,22 @@ export function StoreProvider({ children }) {
     setCartItems([]);
   }
 
-  function saveProduct(product) {
-    const payload = normalizeProduct({
-      ...product,
-      id: product.id || makeId('product'),
-      colors: Array.isArray(product.colors) ? product.colors : String(product.colors || '').split(',').map((item) => item.trim()).filter(Boolean),
-      sizes: Array.isArray(product.sizes) ? product.sizes : String(product.sizes || '').split(',').map((item) => item.trim()).filter(Boolean),
-      imageUrls: Array.isArray(product.imageUrls)
-        ? product.imageUrls
-        : String(product.imageUrls || '').split('\n').map((item) => item.trim()).filter(Boolean),
-    });
+  async function saveProduct(product) {
+    const payload = prepareProduct(product);
+
+    if (supabase) {
+      const dbPayload = productToDbProduct(payload);
+      const query = product.id
+        ? supabase.from('products').update(dbPayload).eq('id', product.id)
+        : supabase.from('products').insert(dbPayload);
+
+      const { data, error } = await query.select('*').single();
+      if (error) throw error;
+
+      const saved = dbProductToProduct(data);
+      await refreshProducts();
+      return saved;
+    }
 
     setProducts((current) => {
       const exists = current.some((item) => item.id === payload.id);
@@ -87,22 +230,81 @@ export function StoreProvider({ children }) {
     return payload;
   }
 
-  function deleteProduct(id) {
+  async function deleteProduct(id) {
+    if (supabase) {
+      const { error } = await supabase.from('products').delete().eq('id', id);
+      if (error) throw error;
+      await refreshProducts();
+      return;
+    }
+
     setProducts((current) => current.filter((product) => product.id !== id));
   }
 
-  function createOrder({ user, shipping, paymentMethod }) {
-    if (!user) throw new Error('Sign in to place your Ajiomart order.');
+  async function createOrder({ user: orderUser, shipping, paymentMethod }) {
+    if (!orderUser) throw new Error('Sign in to place your Ajiomart order.');
     if (!cartItems.length) throw new Error('Your cart is empty.');
+
+    const total = cartItems.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
+
+    if (supabase) {
+      const { data: order, error } = await supabase
+        .from('orders')
+        .insert({
+          user_id: orderUser.id,
+          customer_name: shipping.customerName,
+          customer_phone: shipping.customerPhone,
+          address_line1: shipping.addressLine1,
+          address_line2: shipping.addressLine2 || null,
+          city: shipping.city,
+          state: shipping.state,
+          postal_code: shipping.postalCode,
+          landmark: shipping.landmark || null,
+          total,
+          payment_method: paymentMethod,
+        })
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      const orderItems = cartItems.map((item) => ({
+        order_id: order.id,
+        product_id: item.id,
+        product_name: item.name,
+        category: item.category,
+        selected_color: item.color,
+        selected_size: item.size,
+        quantity: item.quantity,
+        price: item.price,
+        image_url: item.imageUrl,
+      }));
+
+      const { error: itemError } = await supabase.from('order_items').insert(orderItems);
+      if (itemError) throw itemError;
+
+      const { data: savedOrder, error: savedOrderError } = await supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .eq('id', order.id)
+        .single();
+
+      if (savedOrderError) throw savedOrderError;
+
+      const nextOrder = dbOrderToOrder(savedOrder);
+      setOrders((current) => [nextOrder, ...current]);
+      clearCart();
+      return nextOrder;
+    }
 
     const order = {
       id: makeId('order'),
-      userId: user.id,
+      userId: orderUser.id,
       customerName: shipping.customerName,
       customerPhone: shipping.customerPhone,
       address: shipping,
       items: cartItems,
-      total: cartItems.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0),
+      total,
       paymentMethod,
       status: 'placed',
       courierPartner: 'Ajiomart Express',
@@ -117,7 +319,12 @@ export function StoreProvider({ children }) {
     return order;
   }
 
-  function updateOrder(orderId, updates) {
+  async function updateOrder(orderId, updates) {
+    if (supabase) {
+      const { error } = await supabase.from('orders').update(orderUpdatesToDb(updates)).eq('id', orderId);
+      if (error) throw error;
+    }
+
     setOrders((current) =>
       current.map((order) =>
         order.id === orderId
@@ -131,7 +338,12 @@ export function StoreProvider({ children }) {
     );
   }
 
-  function deleteOrder(orderId) {
+  async function deleteOrder(orderId) {
+    if (supabase) {
+      const { error } = await supabase.from('orders').delete().eq('id', orderId);
+      if (error) throw error;
+    }
+
     setOrders((current) => current.filter((order) => order.id !== orderId));
   }
 
@@ -145,6 +357,10 @@ export function StoreProvider({ children }) {
       cartItems,
       cartTotal,
       cartCount,
+      productsLoading,
+      ordersLoading,
+      storeError,
+      usingSupabase: hasSupabaseConfig,
       addToCart,
       updateQuantity,
       removeFromCart,
@@ -154,8 +370,10 @@ export function StoreProvider({ children }) {
       createOrder,
       updateOrder,
       deleteOrder,
+      refreshProducts,
+      refreshOrders,
     }),
-    [products, orders, cartItems, cartTotal, cartCount],
+    [products, orders, cartItems, cartTotal, cartCount, productsLoading, ordersLoading, storeError],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

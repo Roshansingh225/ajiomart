@@ -1,5 +1,6 @@
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { demoUsers, makeId, readStorage, STORAGE_KEYS, writeStorage } from '../lib/catalog.js';
+import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 
 const AuthContext = createContext(null);
 
@@ -7,6 +8,18 @@ function sanitizeUser(user) {
   if (!user) return null;
   const { password, ...safeUser } = user;
   return safeUser;
+}
+
+function profileToUser(authUser, profile) {
+  if (!authUser) return null;
+
+  return {
+    id: authUser.id,
+    name: profile?.name || authUser.user_metadata?.name || '',
+    email: profile?.email || authUser.email || '',
+    phone: profile?.phone || authUser.phone || authUser.user_metadata?.phone || '',
+    role: profile?.role || 'customer',
+  };
 }
 
 function getSavedUsers() {
@@ -18,9 +31,96 @@ function getSavedUsers() {
   return saved;
 }
 
+async function fetchProfile(userId) {
+  if (!supabase || !userId) return null;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+async function fetchVisibleProfiles() {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, name, email, phone, role, created_at')
+    .order('created_at', { ascending: false });
+
+  if (error) return [];
+  return data || [];
+}
+
 export function AuthProvider({ children }) {
-  const [users, setUsers] = useState(getSavedUsers);
-  const [sessionUser, setSessionUser] = useState(() => readStorage(STORAGE_KEYS.session, null));
+  const [users, setUsers] = useState(() => (hasSupabaseConfig ? [] : getSavedUsers()));
+  const [sessionUser, setSessionUser] = useState(() =>
+    hasSupabaseConfig ? null : readStorage(STORAGE_KEYS.session, null),
+  );
+  const [loading, setLoading] = useState(hasSupabaseConfig);
+
+  useEffect(() => {
+    if (!supabase) return undefined;
+
+    let mounted = true;
+
+    async function loadSupabaseSession() {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!mounted) return;
+
+        if (!session?.user) {
+          setSessionUser(null);
+          setUsers([]);
+          return;
+        }
+
+        const profile = await fetchProfile(session.user.id);
+        if (!mounted) return;
+
+        setSessionUser(profileToUser(session.user, profile));
+        setUsers(await fetchVisibleProfiles());
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    loadSupabaseSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      window.setTimeout(async () => {
+        if (!mounted) return;
+
+        if (!session?.user) {
+          setSessionUser(null);
+          setUsers([]);
+          setLoading(false);
+          return;
+        }
+
+        try {
+          const profile = await fetchProfile(session.user.id);
+          if (!mounted) return;
+          setSessionUser(profileToUser(session.user, profile));
+          setUsers(await fetchVisibleProfiles());
+        } finally {
+          if (mounted) setLoading(false);
+        }
+      }, 0);
+    });
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   function persistUsers(nextUsers) {
     setUsers(nextUsers);
@@ -34,7 +134,26 @@ export function AuthProvider({ children }) {
     else window.localStorage.removeItem(STORAGE_KEYS.session);
   }
 
+  async function refreshSessionUser(authUser) {
+    const profile = await fetchProfile(authUser.id);
+    const nextUser = profileToUser(authUser, profile);
+    setSessionUser(nextUser);
+    setUsers(await fetchVisibleProfiles());
+    return nextUser;
+  }
+
   async function signIn({ email, password }) {
+    if (supabase) {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      if (error) throw error;
+      if (!data.user) throw new Error('Supabase did not return a user session.');
+      return refreshSessionUser(data.user);
+    }
+
     const match = users.find(
       (user) => user.email.toLowerCase() === email.trim().toLowerCase() && user.password === password,
     );
@@ -48,6 +167,23 @@ export function AuthProvider({ children }) {
     if (!name.trim()) throw new Error('Name is required.');
     if (!email.trim()) throw new Error('Email is required.');
     if (password.length < 6) throw new Error('Use at least 6 characters for the password.');
+
+    if (supabase) {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+        options: {
+          data: {
+            name: name.trim(),
+            phone: phone.trim(),
+          },
+        },
+      });
+
+      if (error) throw error;
+      if (data.user && data.session) return refreshSessionUser(data.user);
+      return data.user;
+    }
 
     const alreadyExists = users.some((user) => user.email.toLowerCase() === email.trim().toLowerCase());
     if (alreadyExists) throw new Error('This email already has an Ajiomart account.');
@@ -67,11 +203,28 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
+    if (supabase) {
+      setSessionUser(null);
+      setUsers([]);
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      if (error) throw error;
+      return;
+    }
+
     persistSession(null);
   }
 
   async function deleteAccount() {
     if (!sessionUser) throw new Error('Sign in again before deleting your account.');
+
+    if (supabase) {
+      await signOut();
+      return {
+        message:
+          'You have been signed out. Supabase account deletion requires a server-side admin function before it can be permanent.',
+      };
+    }
+
     const nextUsers = users.filter((user) => user.id !== sessionUser.id);
     persistUsers(nextUsers);
     persistSession(null);
@@ -83,12 +236,14 @@ export function AuthProvider({ children }) {
       user: sessionUser,
       users: users.map(sanitizeUser),
       isAdmin: sessionUser?.role === 'admin',
+      loading,
+      usingSupabase: hasSupabaseConfig,
       signIn,
       signUp,
       signOut,
       deleteAccount,
     }),
-    [sessionUser, users],
+    [sessionUser, users, loading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
