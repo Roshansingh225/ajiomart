@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { demoUsers, makeId, readStorage, STORAGE_KEYS, writeStorage } from '../lib/catalog.js';
+import { makeId, readStorage, STORAGE_KEYS, writeStorage } from '../lib/catalog.js';
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 
 const AuthContext = createContext(null);
@@ -8,6 +8,17 @@ function sanitizeUser(user) {
   if (!user) return null;
   const { password, ...safeUser } = user;
   return safeUser;
+}
+
+function normalizeIndianPhone(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  const tenDigitPhone = digits.startsWith('91') && digits.length === 12 ? digits.slice(2) : digits;
+
+  if (!/^[6-9]\d{9}$/.test(tenDigitPhone)) {
+    throw new Error('Enter a valid 10 digit Indian mobile number.');
+  }
+
+  return `+91${tenDigitPhone}`;
 }
 
 function profileToUser(authUser, profile) {
@@ -23,12 +34,24 @@ function profileToUser(authUser, profile) {
 }
 
 function getSavedUsers() {
-  const saved = readStorage(STORAGE_KEYS.users, null);
-  if (!saved?.length) {
-    writeStorage(STORAGE_KEYS.users, demoUsers);
-    return demoUsers;
+  const saved = readStorage(STORAGE_KEYS.users, []);
+  const legacyDemoAccounts = new Set(['admin-demo', 'customer-demo']);
+  const legacyDemoEmails = new Set(['admin@ajiomart.com', 'customer@ajiomart.com']);
+  const filtered = saved.filter(
+    (account) => !legacyDemoAccounts.has(account.id) && !legacyDemoEmails.has(account.email?.toLowerCase()),
+  );
+
+  if (filtered.length !== saved.length) writeStorage(STORAGE_KEYS.users, filtered);
+  return filtered;
+}
+
+function getSavedSession() {
+  const session = readStorage(STORAGE_KEYS.session, null);
+  if (session?.id === 'admin-demo' || session?.id === 'customer-demo') {
+    window.localStorage.removeItem(STORAGE_KEYS.session);
+    return null;
   }
-  return saved;
+  return session;
 }
 
 async function fetchProfile(userId) {
@@ -59,7 +82,7 @@ async function fetchVisibleProfiles() {
 export function AuthProvider({ children }) {
   const [users, setUsers] = useState(() => (hasSupabaseConfig ? [] : getSavedUsers()));
   const [sessionUser, setSessionUser] = useState(() =>
-    hasSupabaseConfig ? null : readStorage(STORAGE_KEYS.session, null),
+    hasSupabaseConfig ? null : getSavedSession(),
   );
   const [loading, setLoading] = useState(hasSupabaseConfig);
 
@@ -167,6 +190,7 @@ export function AuthProvider({ children }) {
     if (!name.trim()) throw new Error('Name is required.');
     if (!email.trim()) throw new Error('Email is required.');
     if (password.length < 6) throw new Error('Use at least 6 characters for the password.');
+    const normalizedPhone = normalizeIndianPhone(phone);
 
     if (supabase) {
       const { data, error } = await supabase.auth.signUp({
@@ -175,7 +199,7 @@ export function AuthProvider({ children }) {
         options: {
           data: {
             name: name.trim(),
-            phone: phone.trim(),
+            phone: normalizedPhone,
           },
         },
       });
@@ -192,7 +216,7 @@ export function AuthProvider({ children }) {
       id: makeId('user'),
       name: name.trim(),
       email: email.trim().toLowerCase(),
-      phone: phone.trim(),
+      phone: normalizedPhone,
       password,
       role: 'customer',
     };

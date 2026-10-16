@@ -36,10 +36,11 @@ export default function PrivacyPolicy() {
           </ul>
         </article>
         <article>
-          <h2>Demo Storage</h2>
+          <h2>Browser Storage</h2>
           <p>
-            This fresh build stores demo users, products, cart items, and orders in your browser localStorage so the
-            website works immediately during development.
+            When Supabase is not configured, locally created accounts, products, cart items, and orders are stored in
+            this browser. With Supabase configured, account and store records are managed by Supabase; the cart remains
+            in browser storage.
           </p>
         </article>
         <article>

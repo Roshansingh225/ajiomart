@@ -16,18 +16,13 @@ export default function ProtectedRoute({ adminOnly = false, children }) {
         <p>
           {usingSupabase
             ? 'Promote this Supabase user to admin in the profiles table, then sign in again.'
-            : 'Sign in with the Ajiomart admin demo account to manage products, orders, and tracking.'}
+            : 'This account does not have admin access yet.'}
         </p>
         {usingSupabase ? (
           <pre>{`update public.profiles
 set role = 'admin'
 where email = '${user.email || 'admin@ajiomart.com'}';`}</pre>
-        ) : (
-          <div className="demo-credential">
-            <strong>admin@ajiomart.com</strong>
-            <span>admin123</span>
-          </div>
-        )}
+        ) : null}
         <div className="button-row">
           <Link className="button primary" to="/auth">
             Go to login

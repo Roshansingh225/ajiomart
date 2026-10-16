@@ -475,8 +475,7 @@ select {
 
 .chip,
 .tabs button,
-.admin-row button,
-.demo-login-grid button {
+.admin-row button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -824,31 +823,31 @@ select {
   margin: 1.5rem 0;
 }
 
-.demo-login-grid {
+.phone-input-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.8rem;
-  margin-top: 1rem;
-}
-
-.demo-login-grid button {
-  display: grid;
-  justify-items: start;
-}
-
-.demo-login-grid span,
-.demo-credential span {
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-
-.demo-credential {
-  display: grid;
-  gap: 0.25rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 1rem;
   background: var(--paper);
+  overflow: hidden;
+}
+
+.phone-prefix {
+  display: inline-grid;
+  place-items: center;
+  min-height: 44px;
+  padding: 0 0.9rem;
+  border-right: 1px solid var(--line);
+  color: var(--plum-dark);
+  background: rgba(93, 54, 88, 0.08);
+  font-weight: 800;
+}
+
+.phone-input-row input {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .access-card pre {
@@ -1559,8 +1558,7 @@ select {
     width: 100%;
   }
 
-  .checkout-grid,
-  .demo-login-grid {
+  .checkout-grid {
     grid-template-columns: 1fr;
   }
 

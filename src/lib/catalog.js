@@ -19,25 +19,6 @@ export const categories = [
 
 export const orderStatuses = ['placed', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'];
 
-export const demoUsers = [
-  {
-    id: 'admin-demo',
-    name: 'Ajiomart Admin',
-    email: 'admin@ajiomart.com',
-    password: 'admin123',
-    phone: '+91 98765 00001',
-    role: 'admin',
-  },
-  {
-    id: 'customer-demo',
-    name: 'Meera Kapoor',
-    email: 'customer@ajiomart.com',
-    password: 'customer123',
-    phone: '+91 98765 00002',
-    role: 'customer',
-  },
-];
-
 export const initialProducts = [
   {
     id: 'linen-wrap-dress',

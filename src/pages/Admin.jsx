@@ -145,7 +145,7 @@ export default function Admin() {
             <article className="admin-sidebar-card">
               <p className="eyebrow">Revenue</p>
               <strong>{formatCurrency(metrics.revenue)}</strong>
-              <span>Demo order value</span>
+              <span>Total order value</span>
             </article>
           </div>
         </aside>
@@ -347,7 +347,7 @@ export default function Admin() {
               <article className="admin-card stat-card">
                 <p className="eyebrow">Customers</p>
                 <h2>{users.length}</h2>
-                <p>Local demo accounts and signups on this browser.</p>
+                <p>Customer accounts and signups available to the current admin session.</p>
               </article>
               <article className="admin-card stat-card">
                 <p className="eyebrow">Inventory</p>
@@ -357,7 +357,7 @@ export default function Admin() {
               <article className="admin-card stat-card">
                 <p className="eyebrow">Average order</p>
                 <h2>{formatCurrency(orders.length ? metrics.revenue / orders.length : 0)}</h2>
-                <p>Based on the current demo order list.</p>
+                <p>Based on the current order list.</p>
               </article>
             </div>
           )}

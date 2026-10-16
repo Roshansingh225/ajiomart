@@ -127,7 +127,7 @@ export default function Orders() {
         <div className="account-panel-copy">
           <p className="eyebrow">Account</p>
           <h2>Delete your account</h2>
-          <p>This removes your local Ajiomart login and keeps existing order records visible to the admin demo.</p>
+          <p>This removes your Ajiomart login. Order records may remain available for fulfilment and support.</p>
         </div>
         <div className="account-panel-actions">
           <button className="button secondary danger-button" onClick={handleDeleteAccount} disabled={deletingAccount}>

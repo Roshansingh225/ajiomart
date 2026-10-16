@@ -6,25 +6,9 @@ A fresh fashion and cosmetics ecommerce website built with React and Vite.
 
 - Fashion and beauty storefront for dresses, cosmetics, handbags, footwear, and accessories
 - Product search, filters, product detail galleries, cart, checkout, and order history
-- Local demo authentication with admin and customer accounts
+- Account signup and login with Supabase Auth, with browser storage available when Supabase is not configured
 - Admin panel for product management, order status updates, tracking details, and sales overview
-- Persistent demo data through browser localStorage
-
-## Demo Login
-
-Admin:
-
-```txt
-admin@ajiomart.com
-admin123
-```
-
-Customer:
-
-```txt
-customer@ajiomart.com
-customer123
-```
+- Persistent cart and locally stored data when Supabase is not configured
 
 ## Run
 
@@ -42,7 +26,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://dsvtddkfgkszwjfhgavo.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_Q3ajjZiPhk3ZFHmTyqnuyQ_S-f2JOcu
 ```
 
-This Vite app supports the `NEXT_PUBLIC_` names above and will use Supabase Auth, products, orders, and admin updates when they are present. Without them, it falls back to local demo storage.
+This Vite app supports the `NEXT_PUBLIC_` names above and will use Supabase Auth, products, orders, and admin updates when they are present. Without them, account, product, and order data use browser storage.
 
 ## Supabase SQL
 

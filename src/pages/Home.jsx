@@ -127,7 +127,7 @@ export default function Home() {
         </div>
         <div>
           <ShieldCheck />
-          <strong>Demo admin ready</strong>
+          <strong>Store management</strong>
           <span>Manage products, stock, order status, and delivery tracking.</span>
         </div>
       </section>

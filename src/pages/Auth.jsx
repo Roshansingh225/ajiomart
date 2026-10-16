@@ -12,7 +12,8 @@ export default function Auth() {
   if (user) return <Navigate to="/shop" replace />;
 
   function update(field, value) {
-    setForm((current) => ({ ...current, [field]: value }));
+    const nextValue = field === 'phone' ? value.replace(/\D/g, '').slice(0, 10) : value;
+    setForm((current) => ({ ...current, [field]: nextValue }));
   }
 
   async function handleSubmit(event) {
@@ -29,11 +30,6 @@ export default function Auth() {
     } catch (error) {
       setMessage(error.message);
     }
-  }
-
-  function fillDemo(email, password) {
-    setForm((current) => ({ ...current, email, password }));
-    setMode('login');
   }
 
   return (
@@ -59,8 +55,21 @@ export default function Auth() {
                 <input value={form.name} onChange={(event) => update('name', event.target.value)} />
               </label>
               <label>
-                Phone
-                <input value={form.phone} onChange={(event) => update('phone', event.target.value)} placeholder="+91 98765 43210" />
+                Mobile number
+                <span className="phone-input-row">
+                  <span className="phone-prefix">+91</span>
+                  <input
+                    type="tel"
+                    value={form.phone}
+                    onChange={(event) => update('phone', event.target.value)}
+                    inputMode="numeric"
+                    pattern="[0-9]{10}"
+                    maxLength={10}
+                    minLength={10}
+                    placeholder="9876543210"
+                    required
+                  />
+                </span>
               </label>
             </>
           )}
@@ -76,17 +85,6 @@ export default function Auth() {
             {mode === 'signup' ? 'Create account' : 'Login'}
           </button>
         </form>
-
-        <div className="demo-login-grid">
-          <button type="button" onClick={() => fillDemo('admin@ajiomart.com', 'admin123')}>
-            <strong>Admin demo</strong>
-            <span>admin@ajiomart.com</span>
-          </button>
-          <button type="button" onClick={() => fillDemo('customer@ajiomart.com', 'customer123')}>
-            <strong>Customer demo</strong>
-            <span>customer@ajiomart.com</span>
-          </button>
-        </div>
 
         {message && <p className="status-note">{message}</p>}
       </div>
