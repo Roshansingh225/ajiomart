@@ -1,10 +1,9 @@
 import { Instagram, Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { STORE_WHATSAPP_NUMBER } from '../lib/contact.js';
 import Brand from './Brand.jsx';
 
 export default function Footer() {
-  const whatsappNumber = '919999888877';
-
   return (
     <footer className="site-footer">
       <div className="footer-main">
@@ -12,7 +11,7 @@ export default function Footer() {
           <Brand />
           <p>Fashion, beauty, and daily style essentials curated for confident wardrobes and glowing routines.</p>
           <div className="footer-socials">
-            <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer" aria-label="Chat on WhatsApp">
+            <a href={`https://wa.me/${STORE_WHATSAPP_NUMBER}`} target="_blank" rel="noreferrer" aria-label="Chat on WhatsApp">
               <MessageCircle size={18} />
             </a>
             <a href="https://instagram.com" target="_blank" rel="noreferrer" aria-label="Visit Instagram">

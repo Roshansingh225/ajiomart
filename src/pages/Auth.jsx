@@ -2,6 +2,7 @@ import { LogIn, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { STORE_PHONE } from '../lib/contact.js';
 
 export default function Auth() {
   const { user, signIn, signUp } = useAuth();
@@ -66,7 +67,7 @@ export default function Auth() {
                     pattern="[0-9]{10}"
                     maxLength={10}
                     minLength={10}
-                    placeholder="9876543210"
+                    placeholder={STORE_PHONE}
                     required
                   />
                 </span>

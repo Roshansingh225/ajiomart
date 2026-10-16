@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useStore } from '../context/StoreContext.jsx';
 import { formatCurrency, getProductImages } from '../lib/catalog.js';
+import { STORE_WHATSAPP_NUMBER } from '../lib/contact.js';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -122,7 +123,7 @@ export default function ProductDetail() {
           >
             <Heart size={18} fill={isWishlisted ? 'currentColor' : 'none'} /> {isWishlisted ? 'Saved' : 'Save'}
           </button>
-          <a className="button secondary" href={`https://wa.me/919999888877?text=${whatsappText}`} target="_blank" rel="noreferrer">
+          <a className="button secondary" href={`https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${whatsappText}`} target="_blank" rel="noreferrer">
             <MessageCircle size={18} /> WhatsApp
           </a>
         </div>

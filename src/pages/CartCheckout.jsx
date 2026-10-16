@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useStore } from '../context/StoreContext.jsx';
 import { formatCurrency } from '../lib/catalog.js';
+import { STORE_WHATSAPP_NUMBER } from '../lib/contact.js';
 
 const emptyShipping = {
   customerName: '',
@@ -176,7 +177,7 @@ export default function CartCheckout() {
         <button className="button primary full" disabled={!cartItems.length} onClick={checkout}>
           {paymentMethod === 'Cash on Delivery' ? 'Place COD Order' : `Pay with ${paymentMethod}`}
         </button>
-        <a className="button secondary full" href={`https://wa.me/919999888877?text=${whatsappText}`} target="_blank" rel="noreferrer">
+        <a className="button secondary full" href={`https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${whatsappText}`} target="_blank" rel="noreferrer">
           <MessageCircle size={18} /> WhatsApp support
         </a>
         {status && <p className="status-note">{status}</p>}

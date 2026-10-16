@@ -1,0 +1,2 @@
+export const STORE_PHONE = '9905138225';
+export const STORE_WHATSAPP_NUMBER = `91${STORE_PHONE}`;
