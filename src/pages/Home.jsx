@@ -1,4 +1,14 @@
-import { ArrowRight, Brush, Palette, ShieldCheck, Shirt, Truck } from 'lucide-react';
+import {
+  ArrowDownRight,
+  ArrowRight,
+  ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  Sparkles,
+  Truck,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ProductCard from '../components/ProductCard.jsx';
 import { useStore } from '../context/StoreContext.jsx';
@@ -6,130 +16,332 @@ import { useStore } from '../context/StoreContext.jsx';
 const categoryTiles = [
   {
     title: 'Dresses',
-    copy: 'Midi, satin, linen, and statement silhouettes.',
-    image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=80',
+    copy: 'Fluid silhouettes, made for your kind of occasion.',
+    category: 'Dresses',
+    image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=85',
+    className: 'category-tile-dresses',
+    index: '01',
   },
   {
-    title: 'Cosmetics',
-    copy: 'Makeup, skincare, fragrance, and glow essentials.',
-    image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1200&q=80',
+    title: 'Makeup',
+    copy: 'Color and care, down to the finishing touch.',
+    category: 'Makeup',
+    image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1200&q=85',
+    className: 'category-tile-beauty',
+    index: '02',
   },
   {
-    title: 'Accessories',
-    copy: 'Bags, shoes, and details that finish the look.',
-    image: 'https://images.unsplash.com/photo-1506152983158-b4a74a01c721?auto=format&fit=crop&w=1200&q=80',
+    title: 'Handbags',
+    copy: 'The pieces that make the look your own.',
+    category: 'Handbags',
+    image: 'https://images.unsplash.com/photo-1506152983158-b4a74a01c721?auto=format&fit=crop&w=1200&q=85',
+    className: 'category-tile-accessories',
+    index: '03',
+  },
+];
+
+const lookbookStories = [
+  {
+    category: 'Dresses',
+    title: 'Poolside colour',
+    note: 'Light layers. Long afternoons.',
+    image: '/ajiomart-lookbook-poolside.jpg',
+    number: '01',
+  },
+  {
+    category: 'Skincare',
+    title: 'The everyday ritual',
+    note: 'A slower start, just for you.',
+    image: '/ajiomart-lookbook-ritual.jpg',
+    number: '02',
+  },
+  {
+    category: 'Handbags',
+    title: 'Ready when you are',
+    note: 'One last detail. Then, out the door.',
+    image: '/ajiomart-lookbook-handbag.jpg',
+    number: '03',
   },
 ];
 
 export default function Home() {
-  const { products } = useStore();
-  const featured = products.slice(0, 4);
+  const { products, productsLoading, productError } = useStore();
+  const heroRef = useRef(null);
+  const carouselRef = useRef(null);
+  const [activeProductIndex, setActiveProductIndex] = useState(0);
+  const [activeLookbookIndex, setActiveLookbookIndex] = useState(0);
+  const featured = products.slice(0, 6);
+  const activeLookbook = lookbookStories[activeLookbookIndex];
+
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+
+    let frame = 0;
+    const updateProgress = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const rect = hero.getBoundingClientRect();
+        const progress = Math.min(1, Math.max(0, -rect.top / Math.max(rect.height, 1)));
+        hero.style.setProperty('--hero-scale', String(1 + progress * 0.1));
+        hero.style.setProperty('--hero-fade', String(1 - progress * 0.6));
+        hero.style.setProperty('--hero-shift', `${progress * 18}px`);
+      });
+    };
+
+    updateProgress();
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    window.addEventListener('resize', updateProgress);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', updateProgress);
+      window.removeEventListener('resize', updateProgress);
+    };
+  }, []);
+
+  useEffect(() => {
+    const targets = document.querySelectorAll('[data-reveal]');
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) {
+      targets.forEach((target) => target.classList.add('reveal-visible'));
+      return undefined;
+    }
+
+    document.documentElement.classList.add('motion-ready');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('reveal-visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: '0px 0px -6% 0px' },
+    );
+    targets.forEach((target) => observer.observe(target));
+
+    return () => {
+      observer.disconnect();
+      document.documentElement.classList.remove('motion-ready');
+    };
+  }, []);
+
+  function scrollCarousel(direction) {
+    const carousel = carouselRef.current;
+    if (!carousel) return;
+    const card = carousel.querySelector('.product-card');
+    const gap = Number.parseFloat(window.getComputedStyle(carousel).gap) || 0;
+    const distance = card ? card.offsetWidth + gap : carousel.clientWidth * 0.8;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    carousel.scrollBy({ left: distance * direction, behavior: reducedMotion ? 'auto' : 'smooth' });
+  }
+
+  function updateCarouselActive(event) {
+    const carousel = event.currentTarget;
+    const card = carousel.querySelector('.carousel-card');
+    if (!card) return;
+    const gap = Number.parseFloat(window.getComputedStyle(carousel).gap) || 0;
+    const nextIndex = Math.round(carousel.scrollLeft / (card.offsetWidth + gap));
+    setActiveProductIndex((current) => (current === nextIndex ? current : nextIndex));
+  }
+
+  function carouselCardClass(index) {
+    const offset = index - activeProductIndex;
+    if (offset === 0) return 'carousel-card carousel-active';
+    if (offset === -1) return 'carousel-card carousel-before';
+    if (offset === 1) return 'carousel-card carousel-after';
+    return 'carousel-card carousel-away';
+  }
 
   return (
     <>
-      <section className="hero">
+      <section className="hero cinematic-hero" ref={heroRef}>
+        <div className="hero-media" aria-hidden="true">
+          <img
+            src="/ajiomart-colour-campaign.jpg"
+            alt=""
+            fetchPriority="high"
+          />
+        </div>
+        <div className="hero-topline">
+          <span>The Ajiomart colour edit</span>
+          <span>Fashion / Beauty / 2026</span>
+        </div>
         <div className="hero-content">
-          <p className="eyebrow">Fashion, beauty, and finishing touches</p>
-          <h1>Ajiomart</h1>
-          <p>Curated dresses, cosmetics, bags, shoes, and accessories for everyday plans and standout moments.</p>
+          <p className="eyebrow">New season / Ajiomart</p>
+          <h1>Dress in<br /><em>full colour.</em></h1>
+          <p>Expressive fashion and beauty for every mood, moment, and mirror.</p>
           <div className="hero-actions">
-            <Link className="button primary" to="/shop">
-              Shop new edit <ArrowRight size={18} />
-            </Link>
-            <Link className="button secondary" to="/auth">
-              Private login
+            <Link className="button hero-button" to="/shop">
+              Explore the edit <ArrowRight size={18} />
             </Link>
           </div>
         </div>
-      </section>
-
-      <section className="section promise-grid">
-        <article>
-          <Shirt />
-          <h3>Ready Looks</h3>
-          <p>Shop outfits, makeup, and accessories that work together from the first tap.</p>
-        </article>
-        <article>
-          <Brush />
-          <h3>Beauty Pairings</h3>
-          <p>Skincare and color picks sit beside fashion pieces so styling feels natural.</p>
-        </article>
-        <article>
-          <Truck />
-          <h3>Order Tracking</h3>
-          <p>Track placed orders from packing to delivery through your Ajiomart account.</p>
-        </article>
-      </section>
-
-      <section className="section category-showcase">
-        <div className="section-heading">
-          <p className="eyebrow">Shop by mood</p>
-          <h2>Build the whole look in one place.</h2>
+        <p className="hero-side-note">Colour for every version of you</p>
+        <div className="hero-bottomline">
+          <div className="hero-promises">
+            <span><Sparkles size={16} /><span><strong>Fashion + beauty</strong>One considered edit</span></span>
+            <span><Heart size={16} /><span><strong>Made for expression</strong>Find your own colour</span></span>
+          </div>
+          <span className="hero-scroll-cue">Scroll to explore <ArrowDownRight size={17} /></span>
         </div>
-        <div className="category-grid">
+      </section>
+
+      <div className="editorial-ribbon" aria-label="Ajiomart fashion and beauty">
+        <span><Sparkles size={16} /> The colour issue</span>
+        <i />
+        <span>Wear it your way</span>
+        <i />
+        <span>Beauty in every detail</span>
+        <i />
+        <span><Heart size={15} /> Made to move with you</span>
+      </div>
+
+      <section className="section featured-section" data-reveal>
+        <div className="section-heading inline-heading featured-heading">
+          <div>
+            <p className="eyebrow">The Ajiomart signatures</p>
+            <h2>Made to<br /><em>be noticed.</em></h2>
+          </div>
+          <div className="featured-heading-right">
+            <Link className="text-link" to="/shop">Explore the edit <ArrowRight size={17} /></Link>
+            <div className="carousel-controls" aria-label="Featured products carousel controls">
+              <button className="icon-button" type="button" onClick={() => scrollCarousel(-1)} aria-label="Previous products">
+                <ChevronLeft size={20} />
+              </button>
+              <button className="icon-button" type="button" onClick={() => scrollCarousel(1)} aria-label="Next products">
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+        {featured.length > 0 ? (
+          <div className="product-carousel" ref={carouselRef} onScroll={updateCarouselActive} aria-label="Featured Ajiomart products">
+            {featured.map((product, index) => (
+              <ProductCard key={product.id} product={product} className={carouselCardClass(index)} />
+            ))}
+          </div>
+        ) : (
+          <div className="home-products-empty" role="status">
+            <p>
+              {productsLoading
+                ? 'Loading the latest edit...'
+                : productError
+                  ? 'The latest edit could not be loaded right now.'
+                  : 'The latest edit is being prepared.'}
+            </p>
+            {!productsLoading && !productError && <Link className="text-link" to="/shop">Visit the shop <ArrowRight size={16} /></Link>}
+            {productError && <span className="small-note">{productError}</span>}
+          </div>
+        )}
+      </section>
+
+      <section className="section category-showcase home-categories">
+        <div className="section-heading editorial-heading" data-reveal>
+          <div>
+            <p className="eyebrow">A good place to begin</p>
+            <h2>Find your<br /><em>kind of feeling.</em></h2>
+          </div>
+          <p className="heading-aside">From the first layer to the final detail, make room for a little more you.</p>
+        </div>
+        <div className="category-grid editorial-category-grid">
           {categoryTiles.map((tile) => (
-            <Link className="category-tile" to="/shop" key={tile.title}>
-              <img src={tile.image} alt={tile.title} />
-              <span>
+            <Link
+              className={`category-tile editorial-category-tile ${tile.className}`}
+              to={`/shop?category=${encodeURIComponent(tile.category)}`}
+              key={tile.title}
+              data-reveal
+            >
+              <img src={tile.image} alt={tile.title} loading="lazy" decoding="async" />
+              <span className="category-index">{tile.index} / 03</span>
+              <span className="category-copy">
                 <strong>{tile.title}</strong>
                 <small>{tile.copy}</small>
+                <span className="category-arrow"><ArrowUpRight size={19} /></span>
               </span>
             </Link>
           ))}
         </div>
       </section>
 
-      <section className="section split-feature">
-        <img
-          src="https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1400&q=80"
-          alt="Fashion collection in a boutique"
-        />
-        <div>
-          <p className="eyebrow">The Ajiomart edit</p>
-          <h2>Dresses with glow-ready beauty on the same shelf.</h2>
-          <p>
-            Pair breathable dresses with compact bags, comfortable shoes, skincare rituals, lip shades, and fragrance
-            without jumping between stores.
-          </p>
-          <div className="button-row">
-            <Link className="button primary" to="/shop">
-              Explore collection
-            </Link>
-            <Link className="button secondary" to="/admin">
-              Admin panel
+      <section className="lookbook-section" id="lookbook" aria-label="Ajiomart seasonal lookbook" data-reveal>
+        <div
+          className="lookbook-canvas"
+          style={{ '--lookbook-image': `url("${activeLookbook.image}")` }}
+        >
+          <p className="lookbook-kicker">Ajiomart / Lookbook 2026</p>
+          <div className="lookbook-main-copy" key={activeLookbook.number}>
+            <p>{activeLookbook.category} / The story</p>
+            <h2>{activeLookbook.title}</h2>
+            <span>{activeLookbook.note}</span>
+            <Link to={`/shop?category=${encodeURIComponent(activeLookbook.category)}`}>
+              Shop the story <ArrowUpRight size={17} />
             </Link>
           </div>
+          <span className="lookbook-side-note">Dress for the feeling</span>
+          <div className="lookbook-navigation">
+            <div className="lookbook-arrows">
+              <button
+                className="icon-button"
+                type="button"
+                aria-label="Previous lookbook story"
+                onClick={() => setActiveLookbookIndex((index) => (index + lookbookStories.length - 1) % lookbookStories.length)}
+              >
+                <ChevronLeft size={19} />
+              </button>
+              <span>{String(activeLookbookIndex + 1).padStart(2, '0')} / {String(lookbookStories.length).padStart(2, '0')}</span>
+              <button
+                className="icon-button"
+                type="button"
+                aria-label="Next lookbook story"
+                onClick={() => setActiveLookbookIndex((index) => (index + 1) % lookbookStories.length)}
+              >
+                <ChevronRight size={19} />
+              </button>
+            </div>
+            <div className="lookbook-thumbnails" aria-label="Choose a lookbook story">
+              {lookbookStories.map((story, index) => (
+                <button
+                  key={story.number}
+                  className={index === activeLookbookIndex ? 'lookbook-thumbnail is-active' : 'lookbook-thumbnail'}
+                  type="button"
+                  aria-label={`Show ${story.category} story`}
+                  aria-pressed={index === activeLookbookIndex}
+                  onClick={() => setActiveLookbookIndex(index)}
+                >
+                  <img src={story.image} alt="" loading="lazy" decoding="async" />
+                  <span>{story.category}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="lookbook-instruction">Choose a story to explore</p>
         </div>
       </section>
 
-      <section className="section">
-        <div className="section-heading inline-heading">
-          <div>
-            <p className="eyebrow">Trending now</p>
-            <h2>Fresh picks for the week.</h2>
-          </div>
-          <Link className="text-link" to="/shop">
-            View all <ArrowRight size={16} />
-          </Link>
+      <section className="section brand-story-section" id="story">
+        <div className="brand-story-image" data-reveal>
+          <img
+            src="https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1500&q=85"
+            alt="A considered selection of beauty essentials"
+            loading="lazy"
+            decoding="async"
+          />
+          <span>Beauty, in your own rhythm.</span>
         </div>
-        <div className="product-grid">
-          {featured.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+        <div className="brand-story-copy" data-reveal>
+          <p className="eyebrow">Stories behind the seams</p>
+          <h2>Wear what<br /><em>moves you.</em></h2>
+          <p>Every piece starts with a feeling. Find the clothes, colours, and little rituals that make getting ready feel like your own.</p>
+          <Link className="text-link" to="/shop">Explore fashion & beauty <ArrowRight size={17} /></Link>
+          <div className="brand-story-signoff">Ajiomart <span>Curated for your everyday.</span></div>
         </div>
       </section>
 
-      <section className="section trust-band">
-        <div>
-          <Palette />
-          <strong>Fashion plus beauty</strong>
-          <span>Curated capsules across apparel, cosmetics, and accessories.</span>
-        </div>
-        <div>
-          <ShieldCheck />
-          <strong>Store management</strong>
-          <span>Manage products, stock, order status, and delivery tracking.</span>
-        </div>
+      <section className="home-service-strip" data-reveal>
+        <div><Sparkles size={19} /><span><strong>Fashion + beauty</strong>One thoughtful edit</span></div>
+        <div><Truck size={20} /><span><strong>Order tracking</strong>From dispatch to doorstep</span></div>
+        <Link to="/shop">Find your next favourite <ArrowRight size={17} /></Link>
       </section>
     </>
   );

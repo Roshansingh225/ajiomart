@@ -7,8 +7,9 @@ import { formatCurrency, getProductImages } from '../lib/catalog.js';
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { products, addToCart } = useStore();
+  const { products, addToCart, wishlistIds, toggleWishlist } = useStore();
   const product = products.find((item) => item.id === id);
+  const isWishlisted = product ? wishlistIds.includes(product.id) : false;
   const images = getProductImages(product);
   const [activeImage, setActiveImage] = useState('');
   const [size, setSize] = useState('');
@@ -113,8 +114,13 @@ export default function ProductDetail() {
               </>
             )}
           </button>
-          <button className="button secondary">
-            <Heart size={18} /> Save
+          <button
+            className={isWishlisted ? 'button secondary saved-action' : 'button secondary'}
+            type="button"
+            aria-pressed={isWishlisted}
+            onClick={() => toggleWishlist(product.id)}
+          >
+            <Heart size={18} fill={isWishlisted ? 'currentColor' : 'none'} /> {isWishlisted ? 'Saved' : 'Save'}
           </button>
           <a className="button secondary" href={`https://wa.me/919999888877?text=${whatsappText}`} target="_blank" rel="noreferrer">
             <MessageCircle size={18} /> WhatsApp

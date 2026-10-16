@@ -1,5 +1,6 @@
-import { Instagram, Mail, MapPin, MessageCircle, Phone, Sparkles } from 'lucide-react';
+import { Instagram, Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import Brand from './Brand.jsx';
 
 export default function Footer() {
   const whatsappNumber = '919999888877';
@@ -8,12 +9,7 @@ export default function Footer() {
     <footer className="site-footer">
       <div className="footer-main">
         <div className="footer-brand">
-          <Link className="brand" to="/">
-            <span className="brand-mark">
-              <Sparkles size={20} />
-            </span>
-            <span>Ajiomart</span>
-          </Link>
+          <Brand />
           <p>Fashion, beauty, and daily style essentials curated for confident wardrobes and glowing routines.</p>
           <div className="footer-socials">
             <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer" aria-label="Chat on WhatsApp">
@@ -27,10 +23,11 @@ export default function Footer() {
 
         <div>
           <h3>Shop</h3>
-          <Link to="/shop">Dresses</Link>
-          <Link to="/shop">Makeup</Link>
-          <Link to="/shop">Skincare</Link>
-          <Link to="/shop">Handbags</Link>
+          <Link to="/shop?category=Dresses">Dresses</Link>
+          <Link to="/shop?category=Makeup">Makeup</Link>
+          <Link to="/shop?category=Skincare">Skincare</Link>
+          <Link to="/shop?category=Handbags">Handbags</Link>
+          <Link to="/wishlist">Wishlist</Link>
         </div>
 
         <div>

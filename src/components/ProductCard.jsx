@@ -4,10 +4,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext.jsx';
 import { formatCurrency } from '../lib/catalog.js';
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, className = '' }) {
   const navigate = useNavigate();
-  const { addToCart } = useStore();
+  const { addToCart, wishlistIds, toggleWishlist } = useStore();
   const [added, setAdded] = useState(false);
+  const isWishlisted = wishlistIds.includes(product.id);
 
   function handleAdd() {
     if (added) {
@@ -20,9 +21,9 @@ export default function ProductCard({ product }) {
   }
 
   return (
-    <article className={added ? 'product-card just-added' : 'product-card'}>
+    <article className={`product-card ${className} ${added ? 'just-added' : ''}`.trim()}>
       <Link to={`/shop/${product.id}`} className="product-image-wrap">
-        <img src={product.imageUrl} alt={product.name} />
+        <img src={product.imageUrl} alt={product.name} loading="lazy" decoding="async" />
         {product.badge && <span className="product-badge">{product.badge}</span>}
       </Link>
       <div className="product-card-body">
@@ -40,8 +41,14 @@ export default function ProductCard({ product }) {
             {product.originalPrice > product.price && <span>{formatCurrency(product.originalPrice)}</span>}
           </div>
           <div className="product-actions">
-            <button className="icon-button wishlist-button" aria-label={`Save ${product.name}`}>
-              <Heart size={17} />
+            <button
+              className={isWishlisted ? 'icon-button wishlist-button is-saved' : 'icon-button wishlist-button'}
+              type="button"
+              aria-label={isWishlisted ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`}
+              aria-pressed={isWishlisted}
+              onClick={() => toggleWishlist(product.id)}
+            >
+              <Heart size={17} fill={isWishlisted ? 'currentColor' : 'none'} />
             </button>
             <button className={added ? 'added' : ''} onClick={handleAdd}>
               {added ? (

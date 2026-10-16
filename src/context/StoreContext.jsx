@@ -93,9 +93,11 @@ export function StoreProvider({ children }) {
   );
   const [orders, setOrders] = useState(() => (hasSupabaseConfig ? [] : readStorage(STORAGE_KEYS.orders, [])));
   const [cartItems, setCartItems] = useState(() => readStorage(STORAGE_KEYS.cart, []));
+  const [wishlistIds, setWishlistIds] = useState(() => readStorage(STORAGE_KEYS.wishlist, []));
   const [productsLoading, setProductsLoading] = useState(hasSupabaseConfig);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [storeError, setStoreError] = useState('');
+  const [productError, setProductError] = useState('');
 
   useEffect(() => {
     if (!hasSupabaseConfig) writeStorage(STORAGE_KEYS.products, products);
@@ -106,6 +108,7 @@ export function StoreProvider({ children }) {
   }, [orders]);
 
   useEffect(() => writeStorage(STORAGE_KEYS.cart, cartItems), [cartItems]);
+  useEffect(() => writeStorage(STORAGE_KEYS.wishlist, wishlistIds), [wishlistIds]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -129,13 +132,15 @@ export function StoreProvider({ children }) {
 
     try {
       setProductsLoading(true);
+      setProductError('');
       setStoreError('');
       const nextProducts = await fetchSupabaseProducts();
       setProducts(nextProducts);
       return nextProducts;
     } catch (error) {
+      setProductError(error.message);
       setStoreError(error.message);
-      setProducts(normalizeProducts(initialProducts));
+      setProducts([]);
       return [];
     } finally {
       setProductsLoading(false);
@@ -203,6 +208,19 @@ export function StoreProvider({ children }) {
   function clearCart() {
     setCartItems([]);
   }
+
+  function toggleWishlist(productId) {
+    setWishlistIds((current) =>
+      current.includes(productId)
+        ? current.filter((id) => id !== productId)
+        : [...current, productId],
+    );
+  }
+
+  const wishlistProducts = useMemo(
+    () => products.filter((product) => wishlistIds.includes(product.id)),
+    [products, wishlistIds],
+  );
 
   async function saveProduct(product) {
     const payload = prepareProduct(product);
@@ -355,16 +373,20 @@ export function StoreProvider({ children }) {
       products,
       orders,
       cartItems,
+      wishlistIds,
+      wishlistProducts,
       cartTotal,
       cartCount,
       productsLoading,
       ordersLoading,
       storeError,
+      productError,
       usingSupabase: hasSupabaseConfig,
       addToCart,
       updateQuantity,
       removeFromCart,
       clearCart,
+      toggleWishlist,
       saveProduct,
       deleteProduct,
       createOrder,
@@ -373,7 +395,7 @@ export function StoreProvider({ children }) {
       refreshProducts,
       refreshOrders,
     }),
-    [products, orders, cartItems, cartTotal, cartCount, productsLoading, ordersLoading, storeError],
+    [products, orders, cartItems, wishlistIds, wishlistProducts, cartTotal, cartCount, productsLoading, ordersLoading, storeError, productError],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

@@ -2,6 +2,7 @@ export const STORAGE_KEYS = {
   products: 'ajiomart-products',
   orders: 'ajiomart-orders',
   cart: 'ajiomart-cart',
+  wishlist: 'ajiomart-wishlist',
   users: 'ajiomart-users',
   session: 'ajiomart-session',
 };

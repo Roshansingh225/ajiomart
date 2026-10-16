@@ -39,8 +39,8 @@ export default function PrivacyPolicy() {
           <h2>Browser Storage</h2>
           <p>
             When Supabase is not configured, locally created accounts, products, cart items, and orders are stored in
-            this browser. With Supabase configured, account and store records are managed by Supabase; the cart remains
-            in browser storage.
+            this browser. With Supabase configured, account and store records are managed by Supabase; the cart and
+            saved wishlist remain in browser storage.
           </p>
         </article>
         <article>

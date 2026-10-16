@@ -1,14 +1,24 @@
 import { Search, SlidersHorizontal } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ProductCard from '../components/ProductCard.jsx';
 import { useStore } from '../context/StoreContext.jsx';
 import { categories } from '../lib/catalog.js';
+import { useSearchParams } from 'react-router-dom';
 
 export default function Shop() {
-  const { products } = useStore();
+  const { products, productsLoading, productError } = useStore();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState('');
-  const [category, setCategory] = useState('All');
+  const [category, setCategory] = useState(() => {
+    const initialCategory = searchParams.get('category');
+    return categories.includes(initialCategory) ? initialCategory : 'All';
+  });
   const [sort, setSort] = useState('featured');
+
+  useEffect(() => {
+    const selectedCategory = searchParams.get('category');
+    setCategory(categories.includes(selectedCategory) ? selectedCategory : 'All');
+  }, [searchParams]);
 
   const visibleCategories = useMemo(
     () => ['All', ...categories.filter((item) => products.some((product) => product.category === item))],
@@ -31,6 +41,14 @@ export default function Shop() {
     });
   }, [products, query, category, sort]);
 
+  function selectCategory(item) {
+    setCategory(item);
+    const nextParams = new URLSearchParams(searchParams);
+    if (item === 'All') nextParams.delete('category');
+    else nextParams.set('category', item);
+    setSearchParams(nextParams, { replace: true });
+  }
+
   return (
     <section className="page">
       <div className="page-heading">
@@ -45,8 +63,8 @@ export default function Shop() {
         </label>
         <div className="filter-row">
           <div className="chip-row">
-            {visibleCategories.map((item) => (
-              <button className={category === item ? 'chip active' : 'chip'} key={item} onClick={() => setCategory(item)}>
+          {visibleCategories.map((item) => (
+              <button className={category === item ? 'chip active' : 'chip'} key={item} onClick={() => selectCategory(item)}>
                 {item}
               </button>
             ))}
@@ -63,7 +81,9 @@ export default function Shop() {
         </div>
       </div>
 
-      {!filtered.length && <p>No products matched your search.</p>}
+      {productsLoading && <p role="status">Loading the Ajiomart edit...</p>}
+      {productError && <p className="error" role="alert">We couldn't load the shop right now. {productError}</p>}
+      {!productsLoading && !productError && !filtered.length && <p>No products matched your search.</p>}
       <div className="product-grid">
         {filtered.map((product) => (
           <ProductCard key={product.id} product={product} />
