@@ -135,7 +135,7 @@ export default function CartCheckout() {
           </label>
           <label>
             Phone
-            <input value={shipping.customerPhone} onChange={(event) => updateShipping('customerPhone', event.target.value)} placeholder="+91 98765 43210" />
+            <input value={shipping.customerPhone} onChange={(event) => updateShipping('customerPhone', event.target.value)} placeholder={`+91 ${STORE_PHONE}`} />
           </label>
           <label>
             Address line 1

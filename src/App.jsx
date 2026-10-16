@@ -1,3 +1,4 @@
+import { useLayoutEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Footer from './components/Footer.jsx';
 import Navbar from './components/Navbar.jsx';
@@ -15,6 +16,15 @@ import Wishlist from './pages/Wishlist.jsx';
 
 export default function App() {
   const location = useLocation();
+
+  useLayoutEffect(() => {
+    if (location.hash) {
+      document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [location.key, location.hash]);
 
   return (
     <div className="app-shell">

@@ -1,59 +1,94 @@
-import { Instagram, Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
+import { ArrowUp, HeartHandshake, Instagram, Mail, MessageCircle, Phone, Shirt, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { STORE_WHATSAPP_NUMBER } from '../lib/contact.js';
+import { STORE_PHONE, STORE_WHATSAPP_NUMBER } from '../lib/contact.js';
 import Brand from './Brand.jsx';
 
 export default function Footer() {
+  const whatsappUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}`;
+
   return (
     <footer className="site-footer">
-      <div className="footer-main">
-        <div className="footer-brand">
-          <Brand />
-          <p>Fashion, beauty, and daily style essentials curated for confident wardrobes and glowing routines.</p>
-          <div className="footer-socials">
-            <a href={`https://wa.me/${STORE_WHATSAPP_NUMBER}`} target="_blank" rel="noreferrer" aria-label="Chat on WhatsApp">
-              <MessageCircle size={18} />
+      <div className="footer-inner">
+        <div className="footer-intro">
+          <div>
+            <span className="footer-eyebrow">THE AJIOMART EDIT</span>
+            <h2>Feel good in what you wear.</h2>
+          </div>
+          <p>Fresh fashion and beauty finds for all the little plans that make up your day.</p>
+        </div>
+
+        <div className="footer-main">
+          <div className="footer-brand">
+            <Brand />
+            <p>Style, beauty, and daily essentials selected to make getting ready feel like you.</p>
+            <div className="footer-socials">
+              <a href={whatsappUrl} target="_blank" rel="noreferrer" aria-label="Chat on WhatsApp">
+                <MessageCircle size={18} />
+              </a>
+              <a href="https://instagram.com" target="_blank" rel="noreferrer" aria-label="Visit Instagram">
+                <Instagram size={18} />
+              </a>
+            </div>
+          </div>
+
+          <nav className="footer-column" aria-label="Explore categories">
+            <h3>Explore</h3>
+            <Link to="/shop?category=Dresses">Dresses</Link>
+            <Link to="/shop?category=Co-ords">Co-ords</Link>
+            <Link to="/shop?category=Makeup">Makeup</Link>
+            <Link to="/shop?category=Skincare">Skincare</Link>
+            <Link to="/shop?category=Footwear">Footwear</Link>
+          </nav>
+
+          <nav className="footer-column" aria-label="Your Ajiomart">
+            <h3>Your Ajiomart</h3>
+            <Link to="/shop">Shop all</Link>
+            <Link to="/orders">My orders</Link>
+            <Link to="/wishlist">Wishlist</Link>
+            <Link to="/cart">Your bag</Link>
+            <Link to="/privacy">Privacy</Link>
+          </nav>
+
+          <div className="footer-contact">
+            <h3>Here to help</h3>
+            <p className="footer-contact-note">A question about a look or an order? Drop us a message.</p>
+            <a className="footer-contact-link" href={whatsappUrl} target="_blank" rel="noreferrer">
+              <MessageCircle size={17} />
+              <span>WhatsApp us</span>
+              <strong>+91 {STORE_PHONE}</strong>
             </a>
-            <a href="https://instagram.com" target="_blank" rel="noreferrer" aria-label="Visit Instagram">
-              <Instagram size={18} />
+            <a className="footer-contact-link" href={`tel:+91${STORE_PHONE}`}>
+              <Phone size={17} />
+              <span>Call us</span>
+              <strong>+91 {STORE_PHONE}</strong>
+            </a>
+            <a className="footer-email" href="mailto:care@ajiomart.com">
+              <Mail size={16} /> care@ajiomart.com
             </a>
           </div>
         </div>
 
-        <div>
-          <h3>Shop</h3>
-          <Link to="/shop?category=Dresses">Dresses</Link>
-          <Link to="/shop?category=Makeup">Makeup</Link>
-          <Link to="/shop?category=Skincare">Skincare</Link>
-          <Link to="/shop?category=Handbags">Handbags</Link>
-          <Link to="/wishlist">Wishlist</Link>
+        <div className="footer-service-strip">
+          <div>
+            <Shirt size={20} />
+            <span><strong>Style for every day</strong><small>Find your next favorite</small></span>
+          </div>
+          <div>
+            <Sparkles size={20} />
+            <span><strong>Fashion meets beauty</strong><small>One happy little edit</small></span>
+          </div>
+          <div>
+            <HeartHandshake size={20} />
+            <span><strong>A real person, right here</strong><small>Message us whenever</small></span>
+          </div>
         </div>
 
-        <div>
-          <h3>Care</h3>
-          <Link to="/cart">Checkout</Link>
-          <Link to="/orders">Orders</Link>
-          <Link to="/auth">Login</Link>
-          <Link to="/privacy">Privacy</Link>
+        <div className="footer-bottom">
+          <span>Copyright {new Date().getFullYear()} Ajiomart. Made for your everyday.</span>
+          <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            Back to top <ArrowUp size={16} />
+          </button>
         </div>
-
-        <div>
-          <h3>Contact</h3>
-          <p>
-            <MapPin size={16} /> Delhi, India
-          </p>
-          <p>
-            <Phone size={16} /> +91 99998 88877
-          </p>
-          <p>
-            <Mail size={16} /> care@ajiomart.com
-          </p>
-        </div>
-      </div>
-
-      <div className="footer-bottom">
-        <span>Copyright {new Date().getFullYear()} Ajiomart.</span>
-        <span>Fresh fashion and beauty for everyday plans.</span>
       </div>
     </footer>
   );
