@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useStore } from '../context/StoreContext.jsx';
 import { formatCurrency } from '../lib/catalog.js';
-import { STORE_WHATSAPP_NUMBER } from '../lib/contact.js';
+import { STORE_PHONE, STORE_WHATSAPP_NUMBER } from '../lib/contact.js';
 
 const emptyShipping = {
   customerName: '',
