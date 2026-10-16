@@ -16,6 +16,12 @@ import {
   productToDbProduct,
   supabase,
 } from '../lib/supabase.js';
+import {
+  MAX_LOCAL_PRODUCT_IMAGE_BYTES,
+  MAX_PRODUCT_IMAGES,
+  MAX_PRODUCT_IMAGE_SIZE,
+  PRODUCT_IMAGE_MIME_TYPES,
+} from '../lib/productImages.js';
 
 const StoreContext = createContext(null);
 
@@ -51,6 +57,15 @@ function prepareProduct(product) {
     colors: splitList(product.colors),
     sizes: splitList(product.sizes),
     imageUrls: splitImageUrls(product.imageUrls),
+  });
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(file);
   });
 }
 
@@ -223,20 +238,91 @@ export function StoreProvider({ children }) {
   );
 
   async function saveProduct(product) {
-    const payload = prepareProduct(product);
+    const hasImageItems = Array.isArray(product.imageItems);
+    const imageItems = hasImageItems ? product.imageItems : [];
+    const productInput = { ...product };
+    delete productInput.imageItems;
+
+    if (imageItems.length > MAX_PRODUCT_IMAGES) {
+      throw new Error(`Choose no more than ${MAX_PRODUCT_IMAGES} product images.`);
+    }
+
+    const existingImageUrls = hasImageItems
+      ? imageItems.filter((item) => !item.file).map((item) => item.url).filter(Boolean)
+      : productInput.imageUrls;
+    const payload = prepareProduct({ ...productInput, imageUrls: existingImageUrls });
+    const imageFiles = imageItems.filter((item) => item.file);
+
+    for (const { file } of imageFiles) {
+      if (!PRODUCT_IMAGE_MIME_TYPES[file.type]) {
+        throw new Error('Use JPG, PNG, WEBP, or AVIF product images.');
+      }
+      if (file.size > MAX_PRODUCT_IMAGE_SIZE) {
+        throw new Error('Each product image must be 5 MB or smaller.');
+      }
+    }
 
     if (supabase) {
-      const dbPayload = productToDbProduct(payload);
-      const query = product.id
-        ? supabase.from('products').update(dbPayload).eq('id', product.id)
-        : supabase.from('products').insert(dbPayload);
+      const storage = supabase.storage.from('product-images');
+      const uploadedPaths = [];
+      let data;
 
-      const { data, error } = await query.select('*').single();
-      if (error) throw error;
+      try {
+        const uploadedUrls = new Map();
+        for (const item of imageFiles) {
+          const extension = PRODUCT_IMAGE_MIME_TYPES[item.file.type];
+          const path = `${payload.id}/${makeId('image')}.${extension}`;
+          const { error: uploadError } = await storage.upload(path, item.file, {
+            cacheControl: '3600',
+            contentType: item.file.type,
+            upsert: false,
+          });
+          if (uploadError) throw uploadError;
+
+          uploadedPaths.push(path);
+          uploadedUrls.set(item.id, storage.getPublicUrl(path).data.publicUrl);
+        }
+
+        const imageUrls = hasImageItems
+          ? imageItems.map((item) => (item.file ? uploadedUrls.get(item.id) : item.url)).filter(Boolean)
+          : payload.imageUrls;
+        const dbPayload = productToDbProduct({ ...payload, imageUrls });
+        const query = product.id
+          ? supabase.from('products').update(dbPayload).eq('id', product.id)
+          : supabase.from('products').insert(dbPayload);
+
+        const result = await query.select('*').single();
+        if (result.error) throw result.error;
+        data = result.data;
+      } catch (error) {
+        if (uploadedPaths.length) {
+          try {
+            await storage.remove(uploadedPaths);
+          } catch {
+            // Preserve the original upload or product-save error.
+          }
+        }
+        throw error;
+      }
 
       const saved = dbProductToProduct(data);
       await refreshProducts();
       return saved;
+    }
+
+    const localImageBytes = imageFiles.reduce((total, item) => total + item.file.size, 0);
+    if (localImageBytes > MAX_LOCAL_PRODUCT_IMAGE_BYTES) {
+      throw new Error('Without Supabase Storage, keep the total new image size under 1.5 MB.');
+    }
+
+    if (imageFiles.length) {
+      const localUrls = new Map();
+      await Promise.all(imageFiles.map(async (item) => {
+        localUrls.set(item.id, await readFileAsDataUrl(item.file));
+      }));
+      payload.imageUrls = imageItems
+        .map((item) => (item.file ? localUrls.get(item.id) : item.url))
+        .filter(Boolean);
     }
 
     setProducts((current) => {

@@ -1,8 +1,9 @@
-import { ClipboardList, ImagePlus, LayoutDashboard, Package, Save, Shirt, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ClipboardList, ImagePlus, LayoutDashboard, Package, Save, Shirt, Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useStore } from '../context/StoreContext.jsx';
-import { categories, formatCurrency, orderStatuses, prettyStatus } from '../lib/catalog.js';
+import { categories, formatCurrency, makeId, orderStatuses, prettyStatus } from '../lib/catalog.js';
+import { MAX_PRODUCT_IMAGES, MAX_PRODUCT_IMAGE_SIZE, PRODUCT_IMAGE_MIME_TYPES } from '../lib/productImages.js';
 
 const emptyProduct = {
   id: '',
@@ -16,7 +17,6 @@ const emptyProduct = {
   badge: '',
   colors: 'Black, Ivory',
   sizes: 'S, M, L',
-  imageUrls: '',
   description: '',
 };
 
@@ -25,7 +25,18 @@ export default function Admin() {
   const { products, orders, saveProduct, deleteProduct, updateOrder, deleteOrder } = useStore();
   const [view, setView] = useState('catalog');
   const [form, setForm] = useState(emptyProduct);
+  const [imageItems, setImageItems] = useState([]);
+  const [savingProduct, setSavingProduct] = useState(false);
   const [message, setMessage] = useState('');
+  const previewUrls = useRef(new Set());
+
+  useEffect(
+    () => () => {
+      previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+      previewUrls.current.clear();
+    },
+    [],
+  );
 
   const metrics = useMemo(() => {
     const revenue = orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
@@ -37,15 +48,66 @@ export default function Admin() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
+  function clearImageItems() {
+    previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    previewUrls.current.clear();
+    setImageItems([]);
+  }
+
   function resetForm() {
     setForm(emptyProduct);
+    clearImageItems();
+  }
+
+  function handleImageSelection(event) {
+    const selectedFiles = Array.from(event.currentTarget.files || []);
+    event.currentTarget.value = '';
+    if (!selectedFiles.length) return;
+
+    const unsupported = selectedFiles.filter((file) => !PRODUCT_IMAGE_MIME_TYPES[file.type]);
+    const tooLarge = selectedFiles.filter((file) => file.size > MAX_PRODUCT_IMAGE_SIZE);
+    const validFiles = selectedFiles.filter(
+      (file) => PRODUCT_IMAGE_MIME_TYPES[file.type] && file.size <= MAX_PRODUCT_IMAGE_SIZE,
+    );
+    const availableSlots = Math.max(0, MAX_PRODUCT_IMAGES - imageItems.length);
+    const acceptedFiles = validFiles.slice(0, availableSlots);
+    const newItems = acceptedFiles.map((file) => {
+      const previewUrl = URL.createObjectURL(file);
+      previewUrls.current.add(previewUrl);
+      return { id: makeId('image'), file, previewUrl };
+    });
+
+    if (newItems.length) setImageItems((current) => [...current, ...newItems]);
+
+    const notes = [];
+    if (unsupported.length) notes.push('Use JPG, PNG, WEBP, or AVIF images.');
+    if (tooLarge.length) notes.push('Each image must be 5 MB or smaller.');
+    if (validFiles.length > acceptedFiles.length) notes.push(`You can add up to ${MAX_PRODUCT_IMAGES} images.`);
+    setMessage(notes.join(' ') || `${newItems.length} image${newItems.length === 1 ? '' : 's'} ready to upload.`);
+  }
+
+  function removeImage(imageId) {
+    const image = imageItems.find((item) => item.id === imageId);
+    if (image?.file) {
+      URL.revokeObjectURL(image.previewUrl);
+      previewUrls.current.delete(image.previewUrl);
+    }
+    setImageItems((current) => current.filter((item) => item.id !== imageId));
   }
 
   async function handleSaveProduct(event) {
     event.preventDefault();
+    if (!imageItems.length) {
+      setMessage('Add at least one product image.');
+      return;
+    }
+
+    setSavingProduct(true);
+    setMessage('Saving product and uploading images...');
     try {
       const saved = await saveProduct({
         ...form,
+        imageItems,
         price: Number(form.price),
         originalPrice: Number(form.originalPrice || form.price),
         stock: Number(form.stock),
@@ -55,11 +117,21 @@ export default function Admin() {
       resetForm();
     } catch (error) {
       setMessage(error.message);
+    } finally {
+      setSavingProduct(false);
     }
   }
 
   function editProduct(product) {
     setView('catalog');
+    clearImageItems();
+    setImageItems(
+      (product.imageUrls || []).map((url) => ({
+        id: makeId('image'),
+        url,
+        previewUrl: url,
+      })),
+    );
     setForm({
       id: product.id,
       slug: product.slug || '',
@@ -72,7 +144,6 @@ export default function Admin() {
       badge: product.badge || '',
       colors: product.colors?.join(', ') || '',
       sizes: product.sizes?.join(', ') || '',
-      imageUrls: product.imageUrls?.join('\n') || '',
       description: product.description || '',
     });
     setMessage(`Editing ${product.name}.`);
@@ -231,18 +302,47 @@ export default function Admin() {
                   Description
                   <textarea value={form.description} onChange={(event) => update('description', event.target.value)} required />
                 </label>
-                <label className="upload-box">
-                  <ImagePlus /> Image URLs
-                  <textarea
-                    value={form.imageUrls}
-                    onChange={(event) => update('imageUrls', event.target.value)}
-                    placeholder="Paste one product image URL per line"
-                    required
-                  />
-                </label>
+                <div className="admin-image-manager">
+                  <div className="admin-image-manager-heading">
+                    <span>Product images</span>
+                    <span>{imageItems.length} / {MAX_PRODUCT_IMAGES}</span>
+                  </div>
+                  <label className="upload-box image-upload-control">
+                    <ImagePlus size={20} />
+                    <span>Add images</span>
+                    <small>JPG, PNG, WEBP, or AVIF · Up to 5 MB each</small>
+                    <input
+                      type="file"
+                      accept={Object.keys(PRODUCT_IMAGE_MIME_TYPES).join(',')}
+                      multiple
+                      disabled={savingProduct || imageItems.length >= MAX_PRODUCT_IMAGES}
+                      onChange={handleImageSelection}
+                    />
+                  </label>
+                  {imageItems.length > 0 && (
+                    <div className="admin-image-grid">
+                      {imageItems.map((image, index) => (
+                        <figure className="admin-image-preview" key={image.id}>
+                          <img src={image.previewUrl || image.url} alt={`Product image ${index + 1}`} />
+                          {index === 0 && <span className="admin-image-cover">Cover</span>}
+                          <button
+                            type="button"
+                            className="admin-image-remove"
+                            onClick={() => removeImage(image.id)}
+                            disabled={savingProduct}
+                            aria-label={`Remove product image ${index + 1}`}
+                          >
+                            <X size={16} />
+                          </button>
+                        </figure>
+                      ))}
+                    </div>
+                  )}
+                  <p className="admin-image-hint">First image appears on the shop cards. Add more for the product gallery.</p>
+                </div>
                 <div className="button-row">
-                  <button className="button primary" type="submit">
-                    <Save size={18} /> Save product
+                  <button className="button primary" type="submit" disabled={savingProduct}>
+                    <Save size={18} /> {savingProduct ? 'Saving...' : 'Save product'}
                   </button>
                   {form.id && (
                     <button className="button secondary" type="button" onClick={resetForm}>
