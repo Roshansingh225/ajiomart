@@ -137,6 +137,25 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_user();
 
+-- Older Auth accounts may predate the profile trigger. Backfill them so
+-- orders.user_id always points to an existing public.profiles row.
+insert into public.profiles (id, name, email, phone, role)
+select
+  id,
+  coalesce(raw_user_meta_data ->> 'name', ''),
+  email,
+  coalesce(raw_user_meta_data ->> 'phone', phone),
+  'customer'
+from auth.users
+on conflict (id) do update
+set
+  name = case
+    when public.profiles.name = '' then excluded.name
+    else public.profiles.name
+  end,
+  email = coalesce(public.profiles.email, excluded.email),
+  phone = coalesce(public.profiles.phone, excluded.phone);
+
 create or replace function public.admin_delete_order(p_order_id uuid)
 returns void
 language plpgsql

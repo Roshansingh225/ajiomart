@@ -38,6 +38,8 @@ Run [supabase/schema.sql](./supabase/schema.sql) in the Supabase SQL editor to c
 - public `product-images` storage bucket
 - seeded fashion, cosmetics, skincare, handbag, footwear, and fragrance products
 
+For an existing Supabase setup, run [supabase/fix-orders-user-profile.sql](./supabase/fix-orders-user-profile.sql) once if checkout reports `orders_user_id_fkey`. It adds missing profile rows for existing Auth users and leaves existing roles untouched.
+
 After creating an admin user in Supabase Auth, promote it:
 
 ```sql
