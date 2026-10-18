@@ -1,6 +1,18 @@
 const checkoutScriptUrl = 'https://checkout.razorpay.com/v1/checkout.js';
 let scriptPromise;
 
+function formatIndianContact(phone) {
+  const value = String(phone || '').trim();
+  if (!value) return '';
+
+  const digits = value.replace(/\D/g, '');
+  if (digits.length === 10) return `+91${digits}`;
+  if (digits.length === 11 && digits.startsWith('0')) return `+91${digits.slice(1)}`;
+  if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
+  if (value.startsWith('+')) return `+${digits}`;
+  return value;
+}
+
 function loadCheckoutScript() {
   if (window.Razorpay) return Promise.resolve();
   if (scriptPromise) return scriptPromise;
@@ -47,7 +59,7 @@ export async function openRazorpayCheckout({
       prefill: {
         name: customer.name || '',
         email: customer.email || '',
-        contact: customer.phone || '',
+        contact: formatIndianContact(customer.phone),
       },
       theme: { color: '#a7334e' },
       handler: (response) => {
