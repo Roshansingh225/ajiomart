@@ -20,12 +20,38 @@ const emptyShipping = {
 export default function CartCheckout() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { cartItems, cartTotal, updateQuantity, removeFromCart, createOrder } = useStore();
+  const {
+    cartItems,
+    cartTotal,
+    products,
+    productsLoading,
+    updateQuantity,
+    removeFromCart,
+    createOrder,
+  } = useStore();
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [shipping, setShipping] = useState(emptyShipping);
   const [status, setStatus] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [pinLookupStatus, setPinLookupStatus] = useState('');
   const [successState, setSuccessState] = useState(null);
+
+  const cartQuantities = new Map();
+  cartItems.forEach((item) => {
+    cartQuantities.set(item.id, (cartQuantities.get(item.id) || 0) + Number(item.quantity || 0));
+  });
+  const inventoryIssues = productsLoading
+    ? []
+    : [...cartQuantities.entries()].flatMap(([productId, quantity]) => {
+        const product = products.find((item) => item.id === productId);
+        if (!product || product.active === false) {
+          return [{ id: productId, name: product?.name || 'A product', available: 0, requested: quantity }];
+        }
+        if (Number(product.stock) < quantity) {
+          return [{ id: productId, name: product.name, available: Number(product.stock), requested: quantity }];
+        }
+        return [];
+      });
 
   useEffect(() => {
     setShipping((current) => ({
@@ -113,14 +139,24 @@ export default function CartCheckout() {
   }
 
   async function checkout() {
+    if (submitting) return;
     try {
       if (!user) {
         setStatus('Login to place your Ajiomart order.');
         window.setTimeout(() => navigate('/auth'), 650);
         return;
       }
+      if (productsLoading) {
+        setStatus('Checking product availability. Please wait a moment.');
+        return;
+      }
+      if (inventoryIssues.length) {
+        setStatus('Update your cart quantities before placing the order.');
+        return;
+      }
       if (!validateShipping()) return;
 
+      setSubmitting(true);
       setStatus('Creating your order...');
       const order = await createOrder({ user, shipping, paymentMethod });
       setSuccessState(order);
@@ -128,6 +164,8 @@ export default function CartCheckout() {
       window.setTimeout(() => navigate('/orders'), 1800);
     } catch (error) {
       setStatus(error.message);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -153,31 +191,52 @@ export default function CartCheckout() {
         )}
 
         <div className="cart-list">
-          {cartItems.map((item) => (
-            <article className="cart-item" key={item.cartKey}>
-              <img src={item.imageUrl} alt={item.name} />
-              <div>
-                <h3>{item.name}</h3>
-                <p>
-                  {item.color} / {item.size}
-                </p>
-                <strong>{formatCurrency(item.price)}</strong>
-                <div className="quantity-stepper">
-                  <button type="button" onClick={() => updateQuantity(item.cartKey, item.quantity - 1)} aria-label={`Decrease ${item.name}`}>
-                    -
-                  </button>
-                  <span>{item.quantity}</span>
-                  <button type="button" onClick={() => updateQuantity(item.cartKey, item.quantity + 1)} aria-label={`Increase ${item.name}`}>
-                    +
-                  </button>
+          {cartItems.map((item) => {
+            const product = products.find((entry) => entry.id === item.id);
+            const itemProductQuantity = cartQuantities.get(item.id) || 0;
+            const stockLimitReached = !product || product.active === false || itemProductQuantity >= Number(product.stock);
+
+            return (
+              <article className="cart-item" key={item.cartKey}>
+                <img src={item.imageUrl} alt={item.name} />
+                <div>
+                  <h3>{item.name}</h3>
+                  <p>
+                    {item.color} / {item.size}
+                  </p>
+                  <strong>{formatCurrency(item.price)}</strong>
+                  {!productsLoading && product && (
+                    <small className={Number(product.stock) === 0 ? 'cart-stock-note out-of-stock-note' : 'cart-stock-note'}>
+                      {Number(product.stock) === 0 ? 'Out of stock' : `${product.stock} available`}
+                    </small>
+                  )}
+                  <div className="quantity-stepper">
+                    <button type="button" disabled={submitting} onClick={() => updateQuantity(item.cartKey, item.quantity - 1)} aria-label={`Decrease ${item.name}`}>
+                      -
+                    </button>
+                    <span>{item.quantity}</span>
+                    <button type="button" disabled={submitting || productsLoading || stockLimitReached} onClick={() => updateQuantity(item.cartKey, item.quantity + 1)} aria-label={`Increase ${item.name}`}>
+                      +
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <button className="icon-button" onClick={() => removeFromCart(item.cartKey)} aria-label={`Remove ${item.name}`}>
-                <Trash2 />
-              </button>
-            </article>
-          ))}
+                <button className="icon-button" disabled={submitting} onClick={() => removeFromCart(item.cartKey)} aria-label={`Remove ${item.name}`}>
+                  <Trash2 />
+                </button>
+              </article>
+            );
+          })}
         </div>
+        {!!inventoryIssues.length && (
+          <div className="stock-warning" role="alert">
+            <strong>Some items are no longer available in that quantity.</strong>
+            {inventoryIssues.map((issue) => (
+              <p key={issue.id}>
+                {issue.name}: {issue.available} available, {issue.requested} in your bag. Reduce the quantity or remove it.
+              </p>
+            ))}
+          </div>
+        )}
       </div>
 
       <aside className="checkout-card">
@@ -237,8 +296,8 @@ export default function CartCheckout() {
             <option>Cash on Delivery</option>
           </select>
         </label>
-        <button className="button primary full" disabled={!cartItems.length} onClick={checkout}>
-          {paymentMethod === 'Cash on Delivery' ? 'Place COD Order' : `Pay with ${paymentMethod}`}
+        <button className="button primary full" disabled={!cartItems.length || submitting || productsLoading || inventoryIssues.length > 0} onClick={checkout}>
+          {submitting ? 'Placing order...' : productsLoading ? 'Checking stock...' : paymentMethod === 'Cash on Delivery' ? 'Place COD Order' : `Pay with ${paymentMethod}`}
         </button>
         <a className="button secondary full" href={`https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${whatsappText}`} target="_blank" rel="noreferrer">
           <MessageCircle size={18} /> WhatsApp support

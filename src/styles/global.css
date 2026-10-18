@@ -4817,3 +4817,39 @@ body {
   font-size: 0.77rem;
   line-height: 1.45;
 }
+
+.out-of-stock-badge {
+  background: var(--ink);
+}
+
+.product-card-footer button:not(.icon-button):disabled,
+.button:disabled,
+.quantity-stepper button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
+}
+
+.out-of-stock-note,
+.cart-stock-note {
+  color: var(--coral-dark);
+  font-weight: 700;
+}
+
+.cart-stock-note {
+  display: block;
+  margin-top: 0.35rem;
+}
+
+.stock-warning {
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border-left: 3px solid var(--coral-dark);
+  color: var(--ink);
+  background: rgba(201, 92, 70, 0.09);
+}
+
+.stock-warning p {
+  margin: 0.45rem 0 0;
+  font-size: 0.9rem;
+}

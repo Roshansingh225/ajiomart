@@ -182,6 +182,17 @@ export function StoreProvider({ children }) {
   function addToCart(product, quantity = 1, choices = {}) {
     const cleanProduct = normalizeProduct(product);
     const key = `${cleanProduct.id}-${choices.size || 'one'}-${choices.color || 'default'}`;
+    const availableStock = Number(products.find((item) => item.id === cleanProduct.id)?.stock ?? cleanProduct.stock);
+    const availableProduct = products.find((item) => item.id === cleanProduct.id);
+    const quantityInCart = cartItems
+      .filter((item) => item.id === cleanProduct.id)
+      .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+
+    if (
+      !Number.isInteger(quantity) || quantity <= 0 ||
+      !Number.isFinite(availableStock) || availableProduct?.active === false ||
+      quantityInCart + quantity > availableStock
+    ) return false;
 
     setCartItems((current) => {
       const existing = current.find((item) => item.cartKey === key);
@@ -206,14 +217,32 @@ export function StoreProvider({ children }) {
         },
       ];
     });
+
+    return true;
   }
 
   function updateQuantity(cartKey, quantity) {
-    setCartItems((current) =>
-      current
-        .map((item) => (item.cartKey === cartKey ? { ...item, quantity: Number(quantity) } : item))
-        .filter((item) => item.quantity > 0),
-    );
+    const nextQuantity = Math.floor(Number(quantity));
+    if (!Number.isFinite(nextQuantity)) return;
+
+    setCartItems((current) => {
+      const item = current.find((entry) => entry.cartKey === cartKey);
+      if (!item) return current;
+      if (nextQuantity <= 0) return current.filter((entry) => entry.cartKey !== cartKey);
+
+      if (nextQuantity > item.quantity) {
+        const product = products.find((entry) => entry.id === item.id);
+        const otherQuantity = current
+          .filter((entry) => entry.id === item.id && entry.cartKey !== cartKey)
+          .reduce((sum, entry) => sum + Number(entry.quantity || 0), 0);
+        const maxQuantity = Math.max(0, Number(product?.stock || 0) - otherQuantity);
+        if (nextQuantity > maxQuantity) return current;
+      }
+
+      return current.map((entry) =>
+        entry.cartKey === cartKey ? { ...entry, quantity: nextQuantity } : entry,
+      );
+    });
   }
 
   function removeFromCart(cartKey) {
@@ -350,55 +379,65 @@ export function StoreProvider({ children }) {
     if (!cartItems.length) throw new Error('Your cart is empty.');
 
     const total = cartItems.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
+    const requestedQuantities = new Map();
+    cartItems.forEach((item) => {
+      requestedQuantities.set(item.id, (requestedQuantities.get(item.id) || 0) + Number(item.quantity || 0));
+    });
 
     if (supabase) {
-      const { data: order, error } = await supabase
-        .from('orders')
-        .insert({
-          user_id: orderUser.id,
-          customer_name: shipping.customerName,
-          customer_phone: shipping.customerPhone,
-          address_line1: shipping.addressLine1,
-          address_line2: shipping.addressLine2 || null,
-          city: shipping.city,
-          state: shipping.state,
-          postal_code: shipping.postalCode,
-          landmark: shipping.landmark || null,
-          total,
-          payment_method: paymentMethod,
-        })
-        .select('*')
-        .single();
+      const { data: orderResult, error } = await supabase.rpc('place_order', {
+        p_customer_name: shipping.customerName,
+        p_customer_phone: shipping.customerPhone,
+        p_address_line1: shipping.addressLine1,
+        p_address_line2: shipping.addressLine2 || null,
+        p_city: shipping.city,
+        p_state: shipping.state,
+        p_postal_code: shipping.postalCode,
+        p_landmark: shipping.landmark || null,
+        p_payment_method: paymentMethod,
+        p_items: cartItems.map((item) => ({
+          product_id: item.id,
+          quantity: item.quantity,
+          selected_color: item.color,
+          selected_size: item.size,
+        })),
+      });
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'P0001' && error.message.includes('INSUFFICIENT_STOCK')) {
+          await refreshProducts();
+          throw new Error('Stock changed while you were checking out. Review the cart quantities and try again.');
+        }
+        throw error;
+      }
 
-      const orderItems = cartItems.map((item) => ({
-        order_id: order.id,
-        product_id: item.id,
-        product_name: item.name,
-        category: item.category,
-        selected_color: item.color,
-        selected_size: item.size,
-        quantity: item.quantity,
-        price: item.price,
-        image_url: item.imageUrl,
-      }));
-
-      const { error: itemError } = await supabase.from('order_items').insert(orderItems);
-      if (itemError) throw itemError;
-
-      const { data: savedOrder, error: savedOrderError } = await supabase
-        .from('orders')
-        .select('*, order_items(*)')
-        .eq('id', order.id)
-        .single();
-
-      if (savedOrderError) throw savedOrderError;
-
-      const nextOrder = dbOrderToOrder(savedOrder);
+      const nextOrder = dbOrderToOrder({
+        ...orderResult.order,
+        order_items: orderResult.order_items,
+      });
+      const stockUpdates = new Map(orderResult.stocks.map((item) => [item.id, Number(item.stock)]));
+      setProducts((current) =>
+        current.map((product) =>
+          stockUpdates.has(product.id) ? { ...product, stock: stockUpdates.get(product.id) } : product,
+        ),
+      );
       setOrders((current) => [nextOrder, ...current]);
       clearCart();
       return nextOrder;
+    }
+
+    const inventoryIssue = [...requestedQuantities.entries()].find(([productId, quantity]) => {
+      const product = products.find((item) => item.id === productId);
+      return !product || product.active === false || Number(product.stock) < quantity;
+    });
+    if (inventoryIssue) {
+      const product = products.find((item) => item.id === inventoryIssue[0]);
+      const available = Number(product?.stock || 0);
+      throw new Error(
+        product
+          ? `Only ${available} ${product.name} left in stock. Reduce the quantity or remove it from your cart.`
+          : 'A product in your cart is no longer available. Remove it and try again.',
+      );
     }
 
     const order = {
@@ -418,6 +457,12 @@ export function StoreProvider({ children }) {
       createdAt: new Date().toISOString(),
     };
 
+    setProducts((current) =>
+      current.map((product) => ({
+        ...product,
+        stock: Math.max(0, Number(product.stock || 0) - (requestedQuantities.get(product.id) || 0)),
+      })),
+    );
     setOrders((current) => [order, ...current]);
     clearCart();
     return order;

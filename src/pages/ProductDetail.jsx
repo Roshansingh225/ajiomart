@@ -8,9 +8,14 @@ import { STORE_WHATSAPP_NUMBER } from '../lib/contact.js';
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { products, addToCart, wishlistIds, toggleWishlist } = useStore();
+  const { products, cartItems, addToCart, wishlistIds, toggleWishlist } = useStore();
   const product = products.find((item) => item.id === id);
   const isWishlisted = product ? wishlistIds.includes(product.id) : false;
+  const isOutOfStock = product ? Number(product.stock) <= 0 : false;
+  const quantityInCart = product
+    ? cartItems.filter((item) => item.id === product.id).reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+    : 0;
+  const atStockLimit = product && quantityInCart >= Number(product.stock) && quantityInCart > 0;
   const images = getProductImages(product);
   const [activeImage, setActiveImage] = useState('');
   const [size, setSize] = useState('');
@@ -37,12 +42,11 @@ export default function ProductDetail() {
   }
 
   function handleAdd() {
-    if (added) {
+    if (added || atStockLimit) {
       navigate('/cart');
       return;
     }
-    addToCart(product, 1, { size, color });
-    setAdded(true);
+    if (addToCart(product, 1, { size, color })) setAdded(true);
   }
 
   const whatsappText = encodeURIComponent(`Hello Ajiomart, I am interested in ${product.name}.`);
@@ -102,10 +106,14 @@ export default function ProductDetail() {
           </div>
         </div>
 
-        <p className="stock-note">{product.stock > 0 ? `${product.stock} available` : 'Available on request'}</p>
+        <p className={isOutOfStock ? 'stock-note out-of-stock-note' : 'stock-note'}>
+          {isOutOfStock ? 'Out of stock' : `${product.stock} available`}
+        </p>
         <div className="button-row">
-          <button className={added ? 'button primary added-to-cart' : 'button primary'} onClick={handleAdd}>
-            {added ? (
+          <button className={added ? 'button primary added-to-cart' : 'button primary'} onClick={handleAdd} disabled={isOutOfStock}>
+            {isOutOfStock ? (
+              'Out of stock'
+            ) : added || atStockLimit ? (
               <>
                 <Check size={18} /> Go to cart
               </>
