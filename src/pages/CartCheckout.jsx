@@ -259,6 +259,18 @@ export default function CartCheckout() {
             Address line 2
             <input value={shipping.addressLine2} onChange={(event) => updateShipping('addressLine2', event.target.value)} placeholder="Apartment, floor, optional" />
           </label>
+          <label>
+            PIN code
+            <input
+              inputMode="numeric"
+              maxLength={6}
+              pattern="[0-9]{6}"
+              value={shipping.postalCode}
+              onChange={(event) => updateShipping('postalCode', event.target.value)}
+              placeholder="110001"
+            />
+            {pinLookupStatus && <small className="pin-lookup-status" role="status">{pinLookupStatus}</small>}
+          </label>
           <div className="checkout-grid">
             <label>
               City / district
@@ -269,24 +281,10 @@ export default function CartCheckout() {
               <input value={shipping.state} onChange={(event) => updateShipping('state', event.target.value)} placeholder="Delhi" />
             </label>
           </div>
-          <div className="checkout-grid">
-            <label>
-              PIN code
-              <input
-                inputMode="numeric"
-                maxLength={6}
-                pattern="[0-9]{6}"
-                value={shipping.postalCode}
-                onChange={(event) => updateShipping('postalCode', event.target.value)}
-                placeholder="110001"
-              />
-              {pinLookupStatus && <small className="pin-lookup-status" role="status">{pinLookupStatus}</small>}
-            </label>
-            <label>
-              Landmark
-              <input value={shipping.landmark} onChange={(event) => updateShipping('landmark', event.target.value)} placeholder="Near metro station" />
-            </label>
-          </div>
+          <label>
+            Landmark
+            <input value={shipping.landmark} onChange={(event) => updateShipping('landmark', event.target.value)} placeholder="Near metro station" />
+          </label>
         </div>
         <label>
           Payment method
