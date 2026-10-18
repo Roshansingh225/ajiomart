@@ -1,10 +1,9 @@
-import { useLayoutEffect } from 'react';
+import { lazy, Suspense, useLayoutEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Footer from './components/Footer.jsx';
 import Navbar from './components/Navbar.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import StyleAssistant from './components/StyleAssistant.jsx';
-import Admin from './pages/Admin.jsx';
 import Auth from './pages/Auth.jsx';
 import CartCheckout from './pages/CartCheckout.jsx';
 import Home from './pages/Home.jsx';
@@ -13,6 +12,8 @@ import PrivacyPolicy from './pages/PrivacyPolicy.jsx';
 import ProductDetail from './pages/ProductDetail.jsx';
 import Shop from './pages/Shop.jsx';
 import Wishlist from './pages/Wishlist.jsx';
+
+const Admin = lazy(() => import('./pages/Admin.jsx'));
 
 export default function App() {
   const location = useLocation();
@@ -47,9 +48,11 @@ export default function App() {
           <Route
             path="/admin"
             element={
-              <ProtectedRoute adminOnly>
-                <Admin />
-              </ProtectedRoute>
+              <Suspense fallback={<div className="page" role="status">Loading dashboard...</div>}>
+                <ProtectedRoute adminOnly>
+                  <Admin />
+                </ProtectedRoute>
+              </Suspense>
             }
           />
           <Route path="/auth" element={<Auth />} />

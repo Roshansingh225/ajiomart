@@ -1179,6 +1179,73 @@ select {
   gap: 0.85rem;
 }
 
+.admin-order-items {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 0.65rem;
+  min-width: 0;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.admin-order-items h4 {
+  margin: 0;
+  color: var(--plum-dark);
+  font-size: 0.9rem;
+}
+
+.admin-order-item {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-order-item img,
+.admin-order-item-placeholder {
+  display: block;
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  background: var(--cloud);
+}
+
+.admin-order-item-details,
+.admin-order-item-price {
+  display: grid;
+  gap: 0.22rem;
+  min-width: 0;
+}
+
+.admin-order-item-details strong,
+.admin-order-item-price strong {
+  color: var(--ink);
+  font-size: 0.88rem;
+}
+
+.admin-order-item-details span,
+.admin-order-item-price span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.admin-order-item-price {
+  justify-items: end;
+  text-align: right;
+}
+
+.pin-lookup-status {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
 .overview-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -1561,6 +1628,23 @@ select {
   .order-row,
   .order-row.expanded {
     grid-template-columns: 1fr;
+  }
+
+  .admin-order-item {
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 0.55rem;
+  }
+
+  .admin-order-item img,
+  .admin-order-item-placeholder {
+    width: 48px;
+    height: 48px;
+  }
+
+  .admin-order-item-price {
+    grid-column: 2;
+    justify-items: start;
+    text-align: left;
   }
 
   .cart-item img,

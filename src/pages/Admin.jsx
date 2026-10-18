@@ -387,7 +387,7 @@ export default function Admin() {
                         {formatCurrency(order.total)} / {order.paymentMethod}
                       </h3>
                       <p>
-                        {new Date(order.createdAt).toLocaleString()} / {order.items.length} items
+                        {new Date(order.createdAt).toLocaleString()} / {order.items?.length || 0} items
                       </p>
                       <p>
                         {order.customerName} / {order.customerPhone}
@@ -404,6 +404,37 @@ export default function Admin() {
                           .filter(Boolean)
                           .join(', ')}
                       </p>
+                    </div>
+                    <div className="admin-order-items">
+                      <h4>Items in this order</h4>
+                      {order.items?.length ? (
+                        order.items.map((item) => {
+                          const quantity = Number(item.quantity || 0);
+                          return (
+                            <div className="admin-order-item" key={item.cartKey || item.id || `${item.name}-${item.size}-${item.color}`}>
+                              {item.imageUrl ? (
+                                <img src={item.imageUrl} alt="" />
+                              ) : (
+                                <span className="admin-order-item-placeholder" aria-hidden="true" />
+                              )}
+                              <div className="admin-order-item-details">
+                                <strong>{item.name}</strong>
+                                <span>
+                                  {[item.category, `Colour: ${item.color || 'N/A'}`, `Size: ${item.size || 'N/A'}`, `Qty: ${quantity}`]
+                                    .filter(Boolean)
+                                    .join(' / ')}
+                                </span>
+                              </div>
+                              <div className="admin-order-item-price">
+                                <span>{formatCurrency(item.price)} × {quantity}</span>
+                                <strong>{formatCurrency(Number(item.price || 0) * quantity)}</strong>
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p>Item details are not available for this order.</p>
+                      )}
                     </div>
                     <div className="order-actions">
                       <select value={order.status} onChange={(event) => updateOrderField(order, 'status', event.target.value)}>

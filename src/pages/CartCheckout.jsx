@@ -24,6 +24,7 @@ export default function CartCheckout() {
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [shipping, setShipping] = useState(emptyShipping);
   const [status, setStatus] = useState('');
+  const [pinLookupStatus, setPinLookupStatus] = useState('');
   const [successState, setSuccessState] = useState(null);
 
   useEffect(() => {
@@ -34,7 +35,56 @@ export default function CartCheckout() {
     }));
   }, [user]);
 
+  useEffect(() => {
+    const postalCode = shipping.postalCode;
+    if (!/^\d{6}$/.test(postalCode)) {
+      setPinLookupStatus('');
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    setPinLookupStatus('Checking PIN code...');
+
+    async function lookupPostalCode() {
+      try {
+        const response = await fetch(`https://api.pincodeapi.in/api/v1/pincode/${postalCode}`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error('PIN lookup is unavailable.');
+
+        const result = await response.json();
+        const postOffices = result?.success ? result.data?.post_offices : null;
+        if (!postOffices?.length) {
+          setPinLookupStatus('PIN code not found. Enter city and state manually.');
+          return;
+        }
+
+        const office = postOffices.find((item) => item.delivery_status === 'Delivery') || postOffices[0];
+        const city = office.district || '';
+        const state = office.state || '';
+        if (controller.signal.aborted) return;
+        setShipping((current) =>
+          current.postalCode === postalCode
+            ? { ...current, city: city || current.city, state: state || current.state }
+            : current,
+        );
+        setPinLookupStatus([city, state].filter(Boolean).join(', '));
+      } catch (error) {
+        if (!controller.signal.aborted) setPinLookupStatus('Could not look up this PIN. Enter city and state manually.');
+      }
+    }
+
+    lookupPostalCode();
+    return () => controller.abort();
+  }, [shipping.postalCode]);
+
   function updateShipping(field, value) {
+    if (field === 'postalCode') {
+      const postalCode = value.replace(/\D/g, '').slice(0, 6);
+      setShipping((current) => ({ ...current, postalCode, city: '', state: '' }));
+      return;
+    }
+
     setShipping((current) => ({ ...current, [field]: value }));
   }
 
@@ -51,6 +101,11 @@ export default function CartCheckout() {
     const missing = requiredFields.find(([field]) => !shipping[field].trim());
     if (missing) {
       setStatus(`${missing[1]} is required for delivery.`);
+      return false;
+    }
+
+    if (!/^\d{6}$/.test(shipping.postalCode)) {
+      setStatus('Enter a valid 6-digit PIN code.');
       return false;
     }
 
@@ -147,7 +202,7 @@ export default function CartCheckout() {
           </label>
           <div className="checkout-grid">
             <label>
-              City
+              City / district
               <input value={shipping.city} onChange={(event) => updateShipping('city', event.target.value)} placeholder="Delhi" />
             </label>
             <label>
@@ -158,7 +213,15 @@ export default function CartCheckout() {
           <div className="checkout-grid">
             <label>
               PIN code
-              <input value={shipping.postalCode} onChange={(event) => updateShipping('postalCode', event.target.value)} placeholder="110001" />
+              <input
+                inputMode="numeric"
+                maxLength={6}
+                pattern="[0-9]{6}"
+                value={shipping.postalCode}
+                onChange={(event) => updateShipping('postalCode', event.target.value)}
+                placeholder="110001"
+              />
+              {pinLookupStatus && <small className="pin-lookup-status" role="status">{pinLookupStatus}</small>}
             </label>
             <label>
               Landmark
