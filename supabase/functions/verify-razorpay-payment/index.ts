@@ -1,6 +1,7 @@
 import {
   authenticateRequest,
   createServiceClient,
+  corsHeaders,
   getRazorpayCredentials,
   jsonResponse,
   razorpayRequest,
