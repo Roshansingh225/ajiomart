@@ -62,6 +62,11 @@ export default function Orders() {
                   <p className="eyebrow">{order.paymentMethod}</p>
                   <h2>{formatCurrency(order.total)}</h2>
                   <p>{new Date(order.createdAt).toLocaleString()}</p>
+                  <div className="order-price-breakdown">
+                    <span>Items subtotal: {formatCurrency(order.subtotal ?? order.total)}</span>
+                    {order.discount > 0 && <span>Online discount: −{formatCurrency(order.discount)}</span>}
+                    {order.codCharges > 0 && <span>COD charges: +{formatCurrency(order.codCharges)}</span>}
+                  </div>
                   {order.paymentMethod === 'Online Payment' && order.paymentStatus === 'paid' && (
                     <span className="payment-confirmation"><CheckCircle2 size={15} /> Payment confirmed</span>
                   )}

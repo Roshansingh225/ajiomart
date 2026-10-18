@@ -1,6 +1,15 @@
 -- Run once in the Supabase SQL Editor after schema.sql.
 -- Orders and inventory changes are committed atomically by this function.
 
+alter table public.orders
+  add column if not exists subtotal numeric(12, 2) not null default 0 check (subtotal >= 0),
+  add column if not exists discount numeric(12, 2) not null default 0 check (discount >= 0),
+  add column if not exists cod_charges numeric(12, 2) not null default 0 check (cod_charges >= 0);
+
+update public.orders
+set subtotal = total
+where subtotal = 0 and total > 0;
+
 create or replace function public.place_order(
   p_customer_name text,
   p_customer_phone text,
@@ -21,6 +30,9 @@ as $$
 declare
   v_user_id uuid := auth.uid();
   v_order public.orders%rowtype;
+  v_subtotal numeric(12, 2);
+  v_discount numeric(12, 2) := 0;
+  v_cod_charges numeric(12, 2) := 20;
   v_total numeric(12, 2);
   v_result jsonb;
 begin
@@ -42,8 +54,7 @@ begin
     raise exception 'INVALID_SHIPPING_DETAILS' using errcode = '22023';
   end if;
 
-  if p_payment_method is null
-    or p_payment_method not in ('UPI', 'Card', 'Cash on Delivery') then
+  if p_payment_method is distinct from 'Cash on Delivery' then
     raise exception 'INVALID_PAYMENT_METHOD' using errcode = '22023';
   end if;
 
@@ -89,9 +100,11 @@ begin
   end if;
 
   select coalesce(sum(product.price * item.quantity), 0)::numeric(12, 2)
-  into v_total
+  into v_subtotal
   from jsonb_to_recordset(p_items) as item(product_id uuid, quantity integer)
   join public.products as product on product.id = item.product_id;
+
+  v_total := v_subtotal + v_cod_charges;
 
   insert into public.orders (
     user_id,
@@ -103,6 +116,9 @@ begin
     state,
     postal_code,
     landmark,
+    subtotal,
+    discount,
+    cod_charges,
     total,
     payment_method
   )
@@ -116,6 +132,9 @@ begin
     trim(p_state),
     p_postal_code,
     nullif(trim(p_landmark), ''),
+    v_subtotal,
+    v_discount,
+    v_cod_charges,
     v_total,
     p_payment_method
   )

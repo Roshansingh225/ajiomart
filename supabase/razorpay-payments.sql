@@ -2,9 +2,16 @@
 -- Online orders are created only after the Razorpay payment is verified server-side.
 
 alter table public.orders
+  add column if not exists subtotal numeric(12, 2) not null default 0 check (subtotal >= 0),
+  add column if not exists discount numeric(12, 2) not null default 0 check (discount >= 0),
+  add column if not exists cod_charges numeric(12, 2) not null default 0 check (cod_charges >= 0),
   add column if not exists payment_status text not null default 'not_required',
   add column if not exists razorpay_order_id text,
   add column if not exists razorpay_payment_id text;
+
+update public.orders
+set subtotal = total
+where subtotal = 0 and total > 0;
 
 alter table public.orders drop constraint if exists orders_payment_method_check;
 alter table public.orders
@@ -79,6 +86,9 @@ as $$
 declare
   v_session public.payment_sessions%rowtype;
   v_order public.orders%rowtype;
+  v_subtotal numeric(12, 2);
+  v_discount numeric(12, 2);
+  v_cod_charges numeric(12, 2) := 0;
   v_total numeric(12, 2);
   v_result jsonb;
 begin
@@ -159,9 +169,12 @@ begin
   end if;
 
   select coalesce(sum(product.price * item.quantity), 0)::numeric(12, 2)
-  into v_total
+  into v_subtotal
   from jsonb_to_recordset(v_session.items) as item(product_id uuid, quantity integer)
   join public.products as product on product.id = item.product_id;
+
+  v_discount := round(v_subtotal * 0.10, 2);
+  v_total := v_subtotal - v_discount;
 
   if round(v_total * 100)::bigint <> v_session.amount then
     raise exception 'PAYMENT_AMOUNT_MISMATCH' using errcode = '22023';
@@ -177,6 +190,9 @@ begin
     state,
     postal_code,
     landmark,
+    subtotal,
+    discount,
+    cod_charges,
     total,
     payment_method,
     payment_status,
@@ -195,6 +211,9 @@ begin
     trim(v_session.shipping ->> 'state'),
     v_session.shipping ->> 'postal_code',
     nullif(trim(v_session.shipping ->> 'landmark'), ''),
+    v_subtotal,
+    v_discount,
+    v_cod_charges,
     v_total,
     'Online Payment',
     'paid',

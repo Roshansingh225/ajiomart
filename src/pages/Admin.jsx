@@ -389,6 +389,11 @@ export default function Admin() {
                       <p>
                         {new Date(order.createdAt).toLocaleString()} / {order.items?.length || 0} items
                       </p>
+                      <div className="order-price-breakdown">
+                        <span>Items subtotal: {formatCurrency(order.subtotal ?? order.total)}</span>
+                        {order.discount > 0 && <span>Online discount: −{formatCurrency(order.discount)}</span>}
+                        {order.codCharges > 0 && <span>COD charges: +{formatCurrency(order.codCharges)}</span>}
+                      </div>
                       <p>
                         {order.customerName} / {order.customerPhone}
                       </p>

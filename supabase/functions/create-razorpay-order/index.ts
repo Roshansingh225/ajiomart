@@ -69,10 +69,12 @@ Deno.serve(async (request) => {
       }
     }
 
-    const amount = items.reduce((sum, item) => {
+    const subtotal = items.reduce((sum, item) => {
       const product = productById.get(item.id);
       return sum + Math.round(Number(product.price) * 100) * item.quantity;
     }, 0);
+    const discount = Math.round(subtotal * 0.1);
+    const amount = subtotal - discount;
     if (!Number.isSafeInteger(amount) || amount < 100) {
       return jsonResponse({ error: 'The order total is not valid for online payment.' }, 400);
     }
@@ -84,7 +86,7 @@ Deno.serve(async (request) => {
         amount,
         currency: 'INR',
         receipt: `ajio_${crypto.randomUUID().replaceAll('-', '').slice(0, 32)}`,
-        notes: { user_id: user.id },
+        notes: { user_id: user.id, discount_paise: String(discount), discount_percent: '10' },
       }),
     });
     if (!razorpayOrder.id || Number(razorpayOrder.amount) !== amount || razorpayOrder.currency !== 'INR') {

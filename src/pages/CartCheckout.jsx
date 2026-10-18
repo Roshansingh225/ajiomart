@@ -1,10 +1,11 @@
-import { AlertCircle, CheckCircle2, MessageCircle, Trash2 } from 'lucide-react';
+import { AlertCircle, Banknote, Check, CheckCircle2, CreditCard, MessageCircle, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useStore } from '../context/StoreContext.jsx';
 import { formatCurrency } from '../lib/catalog.js';
 import { STORE_PHONE, STORE_WHATSAPP_NUMBER } from '../lib/contact.js';
+import { calculateOrderPricing } from '../lib/orderPricing.js';
 import { openRazorpayCheckout } from '../lib/razorpay.js';
 import { supabase } from '../lib/supabase.js';
 
@@ -41,6 +42,7 @@ export default function CartCheckout() {
   const [paymentFailure, setPaymentFailure] = useState('');
   const [retryMode, setRetryMode] = useState('payment');
   const [pendingVerification, setPendingVerification] = useState(null);
+  const pricing = calculateOrderPricing(cartTotal, paymentMethod === 'online' ? 'Online Payment' : 'Cash on Delivery');
 
   const cartQuantities = new Map();
   cartItems.forEach((item) => {
@@ -199,6 +201,9 @@ export default function CartCheckout() {
           size: item.size,
         })),
       });
+      if (Number(checkout.amount) !== Math.round(pricing.total * 100)) {
+        throw new Error('The secure payment total does not match your cart. Refresh the cart and try again.');
+      }
 
       setStatus('Opening Razorpay checkout...');
       const paymentResponse = await openRazorpayCheckout({
@@ -292,7 +297,7 @@ export default function CartCheckout() {
   }
 
   const whatsappText = encodeURIComponent(
-    `Hello Ajiomart, I need help with my cart: ${cartItems.map((item) => `${item.quantity} x ${item.name}`).join(', ')}. Total ${formatCurrency(cartTotal)}.`,
+    `Hello Ajiomart, I need help with my cart: ${cartItems.map((item) => `${item.quantity} x ${item.name}`).join(', ')}. Total ${formatCurrency(pricing.total)}.`,
   );
 
   return (
@@ -363,7 +368,6 @@ export default function CartCheckout() {
 
       <aside className="checkout-card">
         <p className="eyebrow">Checkout</p>
-        <h2>{formatCurrency(cartTotal)}</h2>
         <div className="shipping-form">
           <label>
             Full name
@@ -408,13 +412,67 @@ export default function CartCheckout() {
             <input value={shipping.landmark} onChange={(event) => updateShipping('landmark', event.target.value)} placeholder="Near metro station" />
           </label>
         </div>
-        <label>
-          Payment method
-          <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
-            <option value="online">Online Payment</option>
-            <option value="cod">Cash on Delivery</option>
-          </select>
-        </label>
+        <fieldset className="payment-method">
+          <legend>Payment method</legend>
+          <div className="payment-method-options">
+            <label className={`payment-choice${paymentMethod === 'online' ? ' is-selected' : ''}`}>
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="online"
+                checked={paymentMethod === 'online'}
+                onChange={() => setPaymentMethod('online')}
+              />
+              <span className="payment-choice-icon" aria-hidden="true"><CreditCard size={19} /></span>
+              <span className="payment-choice-copy">
+                <strong>Online payment</strong>
+                <small>10% off · UPI, cards &amp; more</small>
+              </span>
+              <span className="payment-choice-check" aria-hidden="true">
+                {paymentMethod === 'online' && <Check size={13} strokeWidth={3} />}
+              </span>
+            </label>
+            <label className={`payment-choice${paymentMethod === 'cod' ? ' is-selected' : ''}`}>
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="cod"
+                checked={paymentMethod === 'cod'}
+                onChange={() => setPaymentMethod('cod')}
+              />
+              <span className="payment-choice-icon" aria-hidden="true"><Banknote size={19} /></span>
+              <span className="payment-choice-copy">
+                <strong>Cash on delivery</strong>
+                <small>₹20 fee · pay on arrival</small>
+              </span>
+              <span className="payment-choice-check" aria-hidden="true">
+                {paymentMethod === 'cod' && <Check size={13} strokeWidth={3} />}
+              </span>
+            </label>
+          </div>
+        </fieldset>
+        <div className="checkout-price-breakdown" aria-live="polite">
+          <div className="checkout-price-row">
+            <span>Items subtotal</span>
+            <strong>{formatCurrency(pricing.subtotal)}</strong>
+          </div>
+          {pricing.discount > 0 && (
+            <div className="checkout-price-row checkout-price-discount">
+              <span>Online discount (10%)</span>
+              <strong>−{formatCurrency(pricing.discount)}</strong>
+            </div>
+          )}
+          {pricing.codCharges > 0 && (
+            <div className="checkout-price-row">
+              <span>COD charges</span>
+              <strong>+{formatCurrency(pricing.codCharges)}</strong>
+            </div>
+          )}
+          <div className="checkout-price-total">
+            <span>Amount to pay</span>
+            <strong>{formatCurrency(pricing.total)}</strong>
+          </div>
+        </div>
         <button className="button primary full" disabled={!cartItems.length || submitting || productsLoading || inventoryIssues.length > 0} onClick={checkout}>
           {submitting ? 'Processing...' : productsLoading ? 'Checking stock...' : paymentMethod === 'cod' ? 'Place COD Order' : 'Pay online with Razorpay'}
         </button>

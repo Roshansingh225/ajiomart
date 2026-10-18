@@ -16,6 +16,7 @@ import {
   productToDbProduct,
   supabase,
 } from '../lib/supabase.js';
+import { calculateOrderPricing } from '../lib/orderPricing.js';
 import {
   MAX_LOCAL_PRODUCT_IMAGE_BYTES,
   MAX_PRODUCT_IMAGES,
@@ -378,7 +379,8 @@ export function StoreProvider({ children }) {
     if (!orderUser) throw new Error('Sign in to place your Ajiomart order.');
     if (!cartItems.length) throw new Error('Your cart is empty.');
 
-    const total = cartItems.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
+    const subtotal = cartItems.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
+    const pricing = calculateOrderPricing(subtotal, paymentMethod);
     const requestedQuantities = new Map();
     cartItems.forEach((item) => {
       requestedQuantities.set(item.id, (requestedQuantities.get(item.id) || 0) + Number(item.quantity || 0));
@@ -447,7 +449,7 @@ export function StoreProvider({ children }) {
       customerPhone: shipping.customerPhone,
       address: shipping,
       items: cartItems,
-      total,
+      ...pricing,
       paymentMethod,
       status: 'placed',
       courierPartner: 'Ajiomart Express',

@@ -42,8 +42,11 @@ create table if not exists public.orders (
   state text not null,
   postal_code text not null,
   landmark text,
+  subtotal numeric(12, 2) not null default 0 check (subtotal >= 0),
+  discount numeric(12, 2) not null default 0 check (discount >= 0),
+  cod_charges numeric(12, 2) not null default 0 check (cod_charges >= 0),
   total numeric(12, 2) not null default 0 check (total >= 0),
-  payment_method text not null check (payment_method in ('UPI', 'Card', 'Cash on Delivery')),
+  payment_method text not null check (payment_method in ('UPI', 'Card', 'Cash on Delivery', 'Online Payment')),
   status text not null default 'placed' check (
     status in ('placed', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled')
   ),
