@@ -1,4 +1,4 @@
-import { AlertTriangle, PackageCheck, Truck } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, PackageCheck, Truck } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -62,6 +62,9 @@ export default function Orders() {
                   <p className="eyebrow">{order.paymentMethod}</p>
                   <h2>{formatCurrency(order.total)}</h2>
                   <p>{new Date(order.createdAt).toLocaleString()}</p>
+                  {order.paymentMethod === 'Online Payment' && order.paymentStatus === 'paid' && (
+                    <span className="payment-confirmation"><CheckCircle2 size={15} /> Payment confirmed</span>
+                  )}
                 </div>
                 <div className="order-pill">{prettyStatus(order.status)}</div>
               </div>

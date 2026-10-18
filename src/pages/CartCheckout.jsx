@@ -1,10 +1,12 @@
-import { CheckCircle2, MessageCircle, Trash2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, MessageCircle, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useStore } from '../context/StoreContext.jsx';
 import { formatCurrency } from '../lib/catalog.js';
 import { STORE_PHONE, STORE_WHATSAPP_NUMBER } from '../lib/contact.js';
+import { openRazorpayCheckout } from '../lib/razorpay.js';
+import { supabase } from '../lib/supabase.js';
 
 const emptyShipping = {
   customerName: '',
@@ -28,13 +30,17 @@ export default function CartCheckout() {
     updateQuantity,
     removeFromCart,
     createOrder,
+    completeOnlineOrder,
   } = useStore();
-  const [paymentMethod, setPaymentMethod] = useState('UPI');
+  const [paymentMethod, setPaymentMethod] = useState('online');
   const [shipping, setShipping] = useState(emptyShipping);
   const [status, setStatus] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [pinLookupStatus, setPinLookupStatus] = useState('');
   const [successState, setSuccessState] = useState(null);
+  const [paymentFailure, setPaymentFailure] = useState('');
+  const [retryMode, setRetryMode] = useState('payment');
+  const [pendingVerification, setPendingVerification] = useState(null);
 
   const cartQuantities = new Map();
   cartItems.forEach((item) => {
@@ -138,6 +144,117 @@ export default function CartCheckout() {
     return true;
   }
 
+  async function invokePaymentFunction(name, body) {
+    if (!supabase) throw new Error('Online payments need the Ajiomart Supabase connection.');
+
+    const { data, error } = await supabase.functions.invoke(name, { body });
+    if (!error && data?.error) {
+      const requestError = new Error(data.error);
+      requestError.code = data.code;
+      throw requestError;
+    }
+    if (error) {
+      let payload = data;
+      if (!payload && error.context?.json) {
+        try {
+          payload = await error.context.json();
+        } catch {
+          payload = null;
+        }
+      }
+      const requestError = new Error(payload?.error || error.message || 'Online payment request failed.');
+      requestError.code = payload?.code;
+      throw requestError;
+    }
+    return data;
+  }
+
+  async function verifyPendingPayment(paymentDetails) {
+    const result = await invokePaymentFunction('verify-razorpay-payment', paymentDetails);
+    const order = completeOnlineOrder(result);
+    setPendingVerification(null);
+    setPaymentFailure('');
+    setStatus('');
+    setSuccessState(order);
+    window.setTimeout(() => navigate('/orders'), 1800);
+  }
+
+  async function beginOnlinePayment() {
+    if (!supabase) {
+      setStatus('Online payment is not configured for this Ajiomart environment yet.');
+      return;
+    }
+
+    setSubmitting(true);
+    setStatus('Preparing secure online payment...');
+    setPaymentFailure('');
+    let verificationRequest = null;
+    try {
+      const checkout = await invokePaymentFunction('create-razorpay-order', {
+        shipping,
+        items: cartItems.map((item) => ({
+          id: item.id,
+          quantity: item.quantity,
+          color: item.color,
+          size: item.size,
+        })),
+      });
+
+      setStatus('Opening Razorpay checkout...');
+      const paymentResponse = await openRazorpayCheckout({
+        keyId: checkout.keyId,
+        orderId: checkout.orderId,
+        amount: checkout.amount,
+        currency: checkout.currency,
+        customer: {
+          name: shipping.customerName || user?.name,
+          email: user?.email,
+          phone: shipping.customerPhone || user?.phone,
+        },
+      });
+
+      verificationRequest = {
+        sessionId: checkout.sessionId,
+        ...paymentResponse,
+      };
+      setPendingVerification(verificationRequest);
+      setStatus('Verifying payment securely...');
+      await verifyPendingPayment(verificationRequest);
+    } catch (error) {
+      setStatus('');
+      setPaymentFailure(error.message);
+      if (error.code === 'PAID_ORDER_NEEDS_SUPPORT') {
+        setRetryMode('support');
+      } else if (verificationRequest) {
+        setPendingVerification(verificationRequest);
+        setRetryMode('verification');
+      } else {
+        setPendingVerification(null);
+        setRetryMode('payment');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function retryPayment() {
+    if (retryMode !== 'verification' || !pendingVerification) {
+      await beginOnlinePayment();
+      return;
+    }
+
+    setSubmitting(true);
+    setPaymentFailure('');
+    try {
+      await verifyPendingPayment(pendingVerification);
+    } catch (error) {
+      setPaymentFailure(error.message);
+      if (error.code === 'PAID_ORDER_NEEDS_SUPPORT') setRetryMode('support');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function checkout() {
     if (submitting) return;
     try {
@@ -156,9 +273,14 @@ export default function CartCheckout() {
       }
       if (!validateShipping()) return;
 
+      if (paymentMethod === 'online') {
+        await beginOnlinePayment();
+        return;
+      }
+
       setSubmitting(true);
       setStatus('Creating your order...');
-      const order = await createOrder({ user, shipping, paymentMethod });
+      const order = await createOrder({ user, shipping, paymentMethod: 'Cash on Delivery' });
       setSuccessState(order);
       setStatus('');
       window.setTimeout(() => navigate('/orders'), 1800);
@@ -289,13 +411,12 @@ export default function CartCheckout() {
         <label>
           Payment method
           <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
-            <option>UPI</option>
-            <option>Card</option>
-            <option>Cash on Delivery</option>
+            <option value="online">Online Payment</option>
+            <option value="cod">Cash on Delivery</option>
           </select>
         </label>
         <button className="button primary full" disabled={!cartItems.length || submitting || productsLoading || inventoryIssues.length > 0} onClick={checkout}>
-          {submitting ? 'Placing order...' : productsLoading ? 'Checking stock...' : paymentMethod === 'Cash on Delivery' ? 'Place COD Order' : `Pay with ${paymentMethod}`}
+          {submitting ? 'Processing...' : productsLoading ? 'Checking stock...' : paymentMethod === 'cod' ? 'Place COD Order' : 'Pay online with Razorpay'}
         </button>
         <a className="button secondary full" href={`https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${whatsappText}`} target="_blank" rel="noreferrer">
           <MessageCircle size={18} /> WhatsApp support
@@ -312,6 +433,35 @@ export default function CartCheckout() {
             <p className="eyebrow">Order placed</p>
             <h2>Your Ajiomart order is confirmed.</h2>
             <p>Order {successState.id.slice(0, 12)} is now visible in your order history.</p>
+          </section>
+        </div>
+      )}
+
+      {paymentFailure && !successState && (
+        <div className="modal-backdrop">
+          <section className="order-success-modal payment-failure-modal" role="dialog" aria-modal="true" aria-labelledby="payment-failure-title">
+            <div className="success-ring payment-failure-icon">
+              <AlertCircle size={48} />
+            </div>
+            <p className="eyebrow">Payment not confirmed</p>
+            <h2 id="payment-failure-title">
+              {retryMode === 'support' ? 'We are checking your payment.' : 'Your order is not placed yet.'}
+            </h2>
+            <p>{paymentFailure}</p>
+            {retryMode !== 'support' ? (
+              <button className="button primary" disabled={submitting} onClick={retryPayment}>
+                {submitting ? 'Please wait...' : retryMode === 'verification' ? 'Retry payment verification' : 'Retry payment'}
+              </button>
+            ) : (
+              <a className="button secondary" href={`https://wa.me/${STORE_WHATSAPP_NUMBER}`} target="_blank" rel="noreferrer">
+                Contact Ajiomart support
+              </a>
+            )}
+            {retryMode !== 'support' && (
+              <button className="button secondary" disabled={submitting} onClick={() => setPaymentFailure('')}>
+                Back to checkout
+              </button>
+            )}
           </section>
         </div>
       )}

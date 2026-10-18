@@ -468,6 +468,24 @@ export function StoreProvider({ children }) {
     return order;
   }
 
+  function completeOnlineOrder(orderResult) {
+    if (!orderResult?.order) throw new Error('Payment was verified, but the order details were not returned.');
+
+    const nextOrder = dbOrderToOrder({
+      ...orderResult.order,
+      order_items: orderResult.order_items || [],
+    });
+    const stockUpdates = new Map((orderResult.stocks || []).map((item) => [item.id, Number(item.stock)]));
+    setProducts((current) =>
+      current.map((product) =>
+        stockUpdates.has(product.id) ? { ...product, stock: stockUpdates.get(product.id) } : product,
+      ),
+    );
+    setOrders((current) => [nextOrder, ...current.filter((order) => order.id !== nextOrder.id)]);
+    clearCart();
+    return nextOrder;
+  }
+
   async function updateOrder(orderId, updates) {
     if (supabase) {
       const { error } = await supabase.from('orders').update(orderUpdatesToDb(updates)).eq('id', orderId);
@@ -521,6 +539,7 @@ export function StoreProvider({ children }) {
       saveProduct,
       deleteProduct,
       createOrder,
+      completeOnlineOrder,
       updateOrder,
       deleteOrder,
       refreshProducts,

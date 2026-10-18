@@ -96,6 +96,7 @@ export function dbOrderToOrder(order) {
     })),
     total: Number(order.total || 0),
     paymentMethod: order.payment_method,
+    paymentStatus: order.payment_status || 'not_required',
     status: order.status,
     courierPartner: order.courier_partner,
     trackingNumber: order.tracking_number || '',
