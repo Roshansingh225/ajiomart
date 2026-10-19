@@ -152,6 +152,18 @@ export function StoreProvider({ children }) {
       setStoreError('');
       const nextProducts = await fetchSupabaseProducts();
       setProducts(nextProducts);
+      const productsById = new Map(nextProducts.map((product) => [product.id, product]));
+      setCartItems((current) => current.map((item) => {
+        const product = productsById.get(item.id);
+        if (!product) return item;
+        return {
+          ...item,
+          name: product.name,
+          category: product.category,
+          price: product.price,
+          imageUrl: product.imageUrl || item.imageUrl,
+        };
+      }));
       return nextProducts;
     } catch (error) {
       setProductError(error.message);
