@@ -4417,6 +4417,11 @@ body {
     min-height: max(630px, calc(100svh - 31px));
   }
 
+  .hero-media img {
+    object-position: 68% center;
+    transform: none;
+  }
+
   .hero-topline {
     top: 84px;
   }
