@@ -20,6 +20,17 @@ const emptyShipping = {
   landmark: '',
 };
 
+function sanitizeCustomerName(value) {
+  return String(value || '').replace(/[^\p{L}\p{M}\s.'’-]/gu, '').slice(0, 80);
+}
+
+function normalizeIndianPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+  return digits.slice(0, 10);
+}
+
 export default function CartCheckout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -68,8 +79,8 @@ export default function CartCheckout() {
   useEffect(() => {
     setShipping((current) => ({
       ...current,
-      customerName: current.customerName || user?.name || '',
-      customerPhone: current.customerPhone || user?.phone || '',
+      customerName: current.customerName || sanitizeCustomerName(user?.name),
+      customerPhone: current.customerPhone || normalizeIndianPhone(user?.phone),
     }));
   }, [user]);
 
@@ -117,6 +128,16 @@ export default function CartCheckout() {
   }, [shipping.postalCode]);
 
   function updateShipping(field, value) {
+    if (field === 'customerName') {
+      setShipping((current) => ({ ...current, customerName: sanitizeCustomerName(value) }));
+      return;
+    }
+
+    if (field === 'customerPhone') {
+      setShipping((current) => ({ ...current, customerPhone: value.replace(/\D/g, '').slice(0, 10) }));
+      return;
+    }
+
     if (field === 'postalCode') {
       const postalCode = value.replace(/\D/g, '').slice(0, 6);
       setShipping((current) => ({ ...current, postalCode, city: '', state: '' }));
@@ -395,11 +416,31 @@ export default function CartCheckout() {
         <div className="shipping-form">
           <label>
             Full name
-            <input value={shipping.customerName} onChange={(event) => updateShipping('customerName', event.target.value)} placeholder="Ananya Sharma" />
+            <input
+              type="text"
+              autoComplete="name"
+              maxLength={80}
+              value={shipping.customerName}
+              onChange={(event) => updateShipping('customerName', event.target.value)}
+              placeholder="Ananya Sharma"
+            />
           </label>
           <label>
-            Phone
-            <input value={shipping.customerPhone} onChange={(event) => updateShipping('customerPhone', event.target.value)} placeholder={`+91 ${STORE_PHONE}`} />
+            Mobile number
+            <span className="phone-input-row">
+              <span className="phone-prefix">+91</span>
+              <input
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                pattern="[6-9][0-9]{9}"
+                maxLength={10}
+                minLength={10}
+                value={shipping.customerPhone}
+                onChange={(event) => updateShipping('customerPhone', event.target.value)}
+                placeholder={STORE_PHONE}
+              />
+            </span>
           </label>
           <label>
             Address line 1
