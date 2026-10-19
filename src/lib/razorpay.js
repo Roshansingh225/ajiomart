@@ -61,6 +61,10 @@ export async function openRazorpayCheckout({
         email: customer.email || '',
         contact: formatIndianContact(customer.phone),
       },
+      hidden: {
+        contact: true,
+        email: true,
+      },
       theme: { color: '#a7334e' },
       handler: (response) => {
         if (settled) return;
