@@ -1,6 +1,6 @@
 import { AlertCircle, Banknote, Check, CheckCircle2, CreditCard, MessageCircle, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useStore } from '../context/StoreContext.jsx';
 import { formatCurrency } from '../lib/catalog.js';
@@ -22,12 +22,16 @@ const emptyShipping = {
 
 export default function CartCheckout() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const location = useLocation();
+  const { user, loading: authLoading } = useAuth();
   const {
     cartItems,
     cartTotal,
     products,
     productsLoading,
+    cartLoading,
+    cartSaving,
+    cartError,
     updateQuantity,
     removeFromCart,
     createOrder,
@@ -173,7 +177,7 @@ export default function CartCheckout() {
 
   async function verifyPendingPayment(paymentDetails) {
     const result = await invokePaymentFunction('verify-razorpay-payment', paymentDetails);
-    const order = completeOnlineOrder(result);
+    const order = await completeOnlineOrder(result);
     setPendingVerification(null);
     setPaymentFailure('');
     setStatus('');
@@ -300,6 +304,14 @@ export default function CartCheckout() {
     `Hello Ajiomart, I need help with my cart: ${cartItems.map((item) => `${item.quantity} x ${item.name}`).join(', ')}. Total ${formatCurrency(pricing.total)}.`,
   );
 
+  if (authLoading || cartLoading) {
+    return <section className="page" role="status">Loading your account cart...</section>;
+  }
+
+  if (!user) {
+    return <Navigate to="/auth" replace state={{ from: `${location.pathname}${location.search}` }} />;
+  }
+
   return (
     <section className="page checkout-layout">
       <div>
@@ -308,6 +320,7 @@ export default function CartCheckout() {
           <h1>Your Ajiomart bag.</h1>
         </div>
 
+        {cartError && <p className="error" role="alert">{cartError}</p>}
         {!cartItems.length && (
           <div className="empty-state">
             <p>Your cart is ready for dresses, makeup, skincare, shoes, and more.</p>
@@ -338,16 +351,16 @@ export default function CartCheckout() {
                     </small>
                   )}
                   <div className="quantity-stepper">
-                    <button type="button" disabled={submitting} onClick={() => updateQuantity(item.cartKey, item.quantity - 1)} aria-label={`Decrease ${item.name}`}>
+                    <button type="button" disabled={submitting || cartSaving} onClick={() => updateQuantity(item.cartKey, item.quantity - 1)} aria-label={`Decrease ${item.name}`}>
                       -
                     </button>
                     <span>{item.quantity}</span>
-                    <button type="button" disabled={submitting || productsLoading || stockLimitReached} onClick={() => updateQuantity(item.cartKey, item.quantity + 1)} aria-label={`Increase ${item.name}`}>
+                    <button type="button" disabled={submitting || cartSaving || productsLoading || stockLimitReached} onClick={() => updateQuantity(item.cartKey, item.quantity + 1)} aria-label={`Increase ${item.name}`}>
                       +
                     </button>
                   </div>
                 </div>
-                <button className="icon-button" disabled={submitting} onClick={() => removeFromCart(item.cartKey)} aria-label={`Remove ${item.name}`}>
+                <button className="icon-button" disabled={submitting || cartSaving} onClick={() => removeFromCart(item.cartKey)} aria-label={`Remove ${item.name}`}>
                   <Trash2 />
                 </button>
               </article>
@@ -473,7 +486,7 @@ export default function CartCheckout() {
             <strong>{formatCurrency(pricing.total)}</strong>
           </div>
         </div>
-        <button className="button primary full" disabled={!cartItems.length || submitting || productsLoading || inventoryIssues.length > 0} onClick={checkout}>
+        <button className="button primary full" disabled={!cartItems.length || submitting || cartSaving || productsLoading || inventoryIssues.length > 0} onClick={checkout}>
           {submitting ? 'Processing...' : productsLoading ? 'Checking stock...' : paymentMethod === 'cod' ? 'Place COD Order' : 'Pay online with Razorpay'}
         </button>
         <a className="button secondary full" href={`https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${whatsappText}`} target="_blank" rel="noreferrer">

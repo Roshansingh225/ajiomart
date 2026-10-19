@@ -1,16 +1,22 @@
 import { LogIn, UserPlus } from 'lucide-react';
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { STORE_PHONE } from '../lib/contact.js';
 
 export default function Auth() {
   const { user, signIn, signUp } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
   const [message, setMessage] = useState('');
+  const requestedDestination = location.state?.from;
+  const destination = typeof requestedDestination === 'string' && requestedDestination.startsWith('/') && !requestedDestination.startsWith('//')
+    ? requestedDestination
+    : '/shop';
 
-  if (user) return <Navigate to="/shop" replace />;
+  if (user) return <Navigate to={destination} replace />;
 
   function update(field, value) {
     const nextValue = field === 'phone' ? value.replace(/\D/g, '').slice(0, 10) : value;
@@ -22,11 +28,15 @@ export default function Auth() {
     try {
       setMessage('One moment...');
       if (mode === 'signup') {
-        await signUp(form);
-        setMessage('Your Ajiomart account is ready.');
+        const result = await signUp(form);
+        if (result?.role) {
+          navigate(destination, { replace: true });
+          return;
+        }
+        setMessage('Check your email to confirm your account, then log in to continue.');
       } else {
         await signIn(form);
-        setMessage('Welcome back to Ajiomart.');
+        navigate(destination, { replace: true });
       }
     } catch (error) {
       setMessage(error.message);

@@ -178,6 +178,9 @@ begin
   ) as requested
   where product.id = requested.product_id;
 
+  delete from public.cart_items
+  where user_id = v_user_id;
+
   select jsonb_build_object(
     'order', to_jsonb(v_order),
     'order_items', coalesce(

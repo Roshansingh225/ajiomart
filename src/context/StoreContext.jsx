@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from './AuthContext.jsx';
 import {
   initialProducts,
@@ -104,16 +104,27 @@ async function fetchSupabaseOrders() {
 
 export function StoreProvider({ children }) {
   const { user, isAdmin, loading: authLoading } = useAuth();
+  const userId = user?.id || null;
   const [products, setProducts] = useState(() =>
     hasSupabaseConfig ? [] : normalizeProducts(readStorage(STORAGE_KEYS.products, initialProducts)),
   );
   const [orders, setOrders] = useState(() => (hasSupabaseConfig ? [] : readStorage(STORAGE_KEYS.orders, [])));
-  const [cartItems, setCartItems] = useState(() => readStorage(STORAGE_KEYS.cart, []));
+  const [storedCartItems, setStoredCartItems] = useState(() =>
+    !hasSupabaseConfig && userId ? readStorage(`${STORAGE_KEYS.cart}:${userId}`, []) : [],
+  );
+  const [cartOwnerId, setCartOwnerId] = useState(() => (!hasSupabaseConfig ? userId : null));
   const [wishlistIds, setWishlistIds] = useState(() => readStorage(STORAGE_KEYS.wishlist, []));
   const [productsLoading, setProductsLoading] = useState(hasSupabaseConfig);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [cartLoading, setCartLoading] = useState(hasSupabaseConfig);
+  const [cartSaving, setCartSaving] = useState(false);
+  const [cartError, setCartError] = useState('');
   const [storeError, setStoreError] = useState('');
   const [productError, setProductError] = useState('');
+  const cartMutationRef = useRef(false);
+  const activeUserIdRef = useRef(userId);
+  activeUserIdRef.current = userId;
+  const cartItems = cartOwnerId === userId ? storedCartItems : [];
 
   useEffect(() => {
     if (!hasSupabaseConfig) writeStorage(STORAGE_KEYS.products, products);
@@ -123,7 +134,11 @@ export function StoreProvider({ children }) {
     if (!hasSupabaseConfig) writeStorage(STORAGE_KEYS.orders, orders);
   }, [orders]);
 
-  useEffect(() => writeStorage(STORAGE_KEYS.cart, cartItems), [cartItems]);
+  useEffect(() => {
+    if (!hasSupabaseConfig && userId && cartOwnerId === userId) {
+      writeStorage(`${STORAGE_KEYS.cart}:${userId}`, storedCartItems);
+    }
+  }, [storedCartItems, cartOwnerId, userId]);
   useEffect(() => writeStorage(STORAGE_KEYS.wishlist, wishlistIds), [wishlistIds]);
 
   useEffect(() => {
@@ -131,6 +146,84 @@ export function StoreProvider({ children }) {
 
     refreshProducts();
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (authLoading) {
+      setCartLoading(true);
+      return undefined;
+    }
+
+    if (!userId) {
+      setStoredCartItems([]);
+      setCartOwnerId(null);
+      setCartLoading(false);
+      setCartError('');
+      return undefined;
+    }
+
+    let cancelled = false;
+    setCartLoading(true);
+    setCartError('');
+
+    if (!supabase) {
+      setStoredCartItems(readStorage(`${STORAGE_KEYS.cart}:${userId}`, []));
+      setCartOwnerId(userId);
+      setCartLoading(false);
+      return undefined;
+    }
+
+    async function loadAccountCart() {
+      try {
+        const [catalog, cartResult] = await Promise.all([
+          fetchSupabaseProducts(),
+          supabase
+            .from('cart_items')
+            .select('product_id, selected_color, selected_size, quantity')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: true }),
+        ]);
+
+        if (cartResult.error) throw cartResult.error;
+        if (cancelled) return;
+
+        const productsById = new Map(catalog.map((product) => [product.id, product]));
+        const nextCart = (cartResult.data || []).flatMap((row) => {
+          const product = productsById.get(row.product_id);
+          if (!product) return [];
+
+          const size = row.selected_size || product.sizes?.[0] || 'One size';
+          const color = row.selected_color || product.colors?.[0] || 'Default';
+          return [{
+            cartKey: `${product.id}-${size}-${color}`,
+            id: product.id,
+            name: product.name,
+            category: product.category,
+            price: product.price,
+            imageUrl: product.imageUrl,
+            quantity: Number(row.quantity),
+            size,
+            color,
+          }];
+        });
+
+        setProducts(catalog);
+        setStoredCartItems(nextCart);
+        setCartOwnerId(userId);
+      } catch (error) {
+        if (cancelled) return;
+        setStoredCartItems([]);
+        setCartOwnerId(userId);
+        setCartError(`Could not load your saved cart: ${error.message}`);
+      } finally {
+        if (!cancelled) setCartLoading(false);
+      }
+    }
+
+    loadAccountCart();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, authLoading]);
 
   useEffect(() => {
     if (!supabase || authLoading) return;
@@ -153,7 +246,7 @@ export function StoreProvider({ children }) {
       const nextProducts = await fetchSupabaseProducts();
       setProducts(nextProducts);
       const productsById = new Map(nextProducts.map((product) => [product.id, product]));
-      setCartItems((current) => current.map((item) => {
+      setStoredCartItems((current) => current.map((item) => {
         const product = productsById.get(item.id);
         if (!product) return item;
         return {
@@ -192,9 +285,15 @@ export function StoreProvider({ children }) {
     }
   }
 
-  function addToCart(product, quantity = 1, choices = {}) {
+  async function addToCart(product, quantity = 1, choices = {}) {
+    if (!userId || authLoading || cartLoading || cartOwnerId !== userId || cartMutationRef.current) {
+      return false;
+    }
+
     const cleanProduct = normalizeProduct(product);
-    const key = `${cleanProduct.id}-${choices.size || 'one'}-${choices.color || 'default'}`;
+    const size = choices.size || cleanProduct.sizes?.[0] || 'One size';
+    const color = choices.color || cleanProduct.colors?.[0] || 'Default';
+    const key = `${cleanProduct.id}-${size}-${color}`;
     const availableStock = Number(products.find((item) => item.id === cleanProduct.id)?.stock ?? cleanProduct.stock);
     const availableProduct = products.find((item) => item.id === cleanProduct.id);
     const quantityInCart = cartItems
@@ -207,63 +306,114 @@ export function StoreProvider({ children }) {
       quantityInCart + quantity > availableStock
     ) return false;
 
-    setCartItems((current) => {
-      const existing = current.find((item) => item.cartKey === key);
-      if (existing) {
-        return current.map((item) =>
-          item.cartKey === key ? { ...item, quantity: item.quantity + quantity } : item,
-        );
+    const existing = cartItems.find((item) => item.cartKey === key);
+    const nextItem = {
+      cartKey: key,
+      id: cleanProduct.id,
+      name: cleanProduct.name,
+      category: cleanProduct.category,
+      price: cleanProduct.price,
+      imageUrl: cleanProduct.imageUrl,
+      quantity: Number(existing?.quantity || 0) + quantity,
+      size,
+      color,
+    };
+
+    cartMutationRef.current = true;
+    setCartSaving(true);
+    setCartError('');
+    try {
+      if (supabase) {
+        const { error } = await supabase.from('cart_items').upsert({
+          user_id: userId,
+          product_id: cleanProduct.id,
+          selected_size: size,
+          selected_color: color,
+          quantity: nextItem.quantity,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,product_id,selected_size,selected_color' });
+        if (error) throw error;
       }
-
-      return [
-        ...current,
-        {
-          cartKey: key,
-          id: cleanProduct.id,
-          name: cleanProduct.name,
-          category: cleanProduct.category,
-          price: cleanProduct.price,
-          imageUrl: cleanProduct.imageUrl,
-          quantity,
-          size: choices.size || cleanProduct.sizes?.[0] || 'One size',
-          color: choices.color || cleanProduct.colors?.[0] || 'Default',
-        },
-      ];
-    });
-
-    return true;
+      if (activeUserIdRef.current !== userId) return false;
+      setStoredCartItems((current) => {
+        const found = current.some((item) => item.cartKey === key);
+        return found
+          ? current.map((item) => (item.cartKey === key ? nextItem : item))
+          : [...current, nextItem];
+      });
+      return true;
+    } catch (error) {
+      setCartError(`Could not save this item to your account: ${error.message}`);
+      return false;
+    } finally {
+      cartMutationRef.current = false;
+      setCartSaving(false);
+    }
   }
 
-  function updateQuantity(cartKey, quantity) {
+  async function updateQuantity(cartKey, quantity) {
+    if (!userId || cartLoading || cartOwnerId !== userId || cartMutationRef.current) return false;
     const nextQuantity = Math.floor(Number(quantity));
-    if (!Number.isFinite(nextQuantity)) return;
+    const item = cartItems.find((entry) => entry.cartKey === cartKey);
+    if (!item || !Number.isFinite(nextQuantity)) return false;
+    if (nextQuantity > item.quantity) {
+      const product = products.find((entry) => entry.id === item.id);
+      const otherQuantity = cartItems
+        .filter((entry) => entry.id === item.id && entry.cartKey !== cartKey)
+        .reduce((sum, entry) => sum + Number(entry.quantity || 0), 0);
+      const maxQuantity = Math.max(0, Number(product?.stock || 0) - otherQuantity);
+      if (nextQuantity > maxQuantity) return false;
+    }
 
-    setCartItems((current) => {
-      const item = current.find((entry) => entry.cartKey === cartKey);
-      if (!item) return current;
-      if (nextQuantity <= 0) return current.filter((entry) => entry.cartKey !== cartKey);
-
-      if (nextQuantity > item.quantity) {
-        const product = products.find((entry) => entry.id === item.id);
-        const otherQuantity = current
-          .filter((entry) => entry.id === item.id && entry.cartKey !== cartKey)
-          .reduce((sum, entry) => sum + Number(entry.quantity || 0), 0);
-        const maxQuantity = Math.max(0, Number(product?.stock || 0) - otherQuantity);
-        if (nextQuantity > maxQuantity) return current;
+    cartMutationRef.current = true;
+    setCartSaving(true);
+    setCartError('');
+    try {
+      if (supabase) {
+        const query = supabase.from('cart_items').delete()
+          .eq('user_id', userId)
+          .eq('product_id', item.id)
+          .eq('selected_size', item.size)
+          .eq('selected_color', item.color);
+        if (nextQuantity <= 0) {
+          const { error } = await query;
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from('cart_items').upsert({
+            user_id: userId,
+            product_id: item.id,
+            selected_size: item.size,
+            selected_color: item.color,
+            quantity: nextQuantity,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,product_id,selected_size,selected_color' });
+          if (error) throw error;
+        }
       }
-
-      return current.map((entry) =>
-        entry.cartKey === cartKey ? { ...entry, quantity: nextQuantity } : entry,
-      );
-    });
+      if (activeUserIdRef.current !== userId) return false;
+      setStoredCartItems((current) => nextQuantity <= 0
+        ? current.filter((entry) => entry.cartKey !== cartKey)
+        : current.map((entry) => entry.cartKey === cartKey ? { ...entry, quantity: nextQuantity } : entry));
+      return true;
+    } catch (error) {
+      setCartError(`Could not update your saved cart: ${error.message}`);
+      return false;
+    } finally {
+      cartMutationRef.current = false;
+      setCartSaving(false);
+    }
   }
 
   function removeFromCart(cartKey) {
-    setCartItems((current) => current.filter((item) => item.cartKey !== cartKey));
+    return updateQuantity(cartKey, 0);
   }
 
-  function clearCart() {
-    setCartItems([]);
+  async function clearCart() {
+    if (supabase && userId) {
+      const { error } = await supabase.from('cart_items').delete().eq('user_id', userId);
+      if (error) setCartError(`Order placed, but your saved cart could not be cleared: ${error.message}`);
+    }
+    setStoredCartItems([]);
   }
 
   function toggleWishlist(productId) {
@@ -436,7 +586,7 @@ export function StoreProvider({ children }) {
         ),
       );
       setOrders((current) => [nextOrder, ...current]);
-      clearCart();
+      await clearCart();
       return nextOrder;
     }
 
@@ -478,11 +628,11 @@ export function StoreProvider({ children }) {
       })),
     );
     setOrders((current) => [order, ...current]);
-    clearCart();
+    await clearCart();
     return order;
   }
 
-  function completeOnlineOrder(orderResult) {
+  async function completeOnlineOrder(orderResult) {
     if (!orderResult?.order) throw new Error('Payment was verified, but the order details were not returned.');
 
     const nextOrder = dbOrderToOrder({
@@ -496,7 +646,7 @@ export function StoreProvider({ children }) {
       ),
     );
     setOrders((current) => [nextOrder, ...current.filter((order) => order.id !== nextOrder.id)]);
-    clearCart();
+    await clearCart();
     return nextOrder;
   }
 
@@ -542,6 +692,9 @@ export function StoreProvider({ children }) {
       cartCount,
       productsLoading,
       ordersLoading,
+      cartLoading,
+      cartSaving,
+      cartError,
       storeError,
       productError,
       usingSupabase: hasSupabaseConfig,
@@ -559,7 +712,7 @@ export function StoreProvider({ children }) {
       refreshProducts,
       refreshOrders,
     }),
-    [products, orders, cartItems, wishlistIds, wishlistProducts, cartTotal, cartCount, productsLoading, ordersLoading, storeError, productError],
+    [products, orders, cartItems, wishlistIds, wishlistProducts, cartTotal, cartCount, productsLoading, ordersLoading, cartLoading, cartSaving, cartError, cartOwnerId, userId, authLoading, storeError, productError],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

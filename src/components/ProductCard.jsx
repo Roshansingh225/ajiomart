@@ -1,13 +1,17 @@
 import { Check, Heart, ShoppingBag, Star } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext.jsx';
 import { useStore } from '../context/StoreContext.jsx';
 import { formatCurrency } from '../lib/catalog.js';
 
 export default function ProductCard({ product, className = '' }) {
   const navigate = useNavigate();
-  const { addToCart, cartItems, wishlistIds, toggleWishlist } = useStore();
+  const location = useLocation();
+  const { user, loading: authLoading } = useAuth();
+  const { addToCart, cartItems, wishlistIds, toggleWishlist, cartLoading, cartSaving } = useStore();
   const [added, setAdded] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
   const isWishlisted = wishlistIds.includes(product.id);
   const isOutOfStock = Number(product.stock) <= 0;
   const quantityInCart = cartItems
@@ -15,13 +19,22 @@ export default function ProductCard({ product, className = '' }) {
     .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
   const atStockLimit = quantityInCart >= Number(product.stock) && quantityInCart > 0;
 
-  function handleAdd() {
+  async function handleAdd() {
+    if (!user) {
+      navigate('/auth', { state: { from: `${location.pathname}${location.search}` } });
+      return;
+    }
     if (added || atStockLimit) {
       navigate('/cart');
       return;
     }
 
-    if (addToCart(product)) setAdded(true);
+    setIsAdding(true);
+    try {
+      if (await addToCart(product)) setAdded(true);
+    } finally {
+      setIsAdding(false);
+    }
   }
 
   return (
@@ -58,9 +71,11 @@ export default function ProductCard({ product, className = '' }) {
             >
               <Heart size={17} fill={isWishlisted ? 'currentColor' : 'none'} />
             </button>
-            <button className={added ? 'added' : ''} onClick={handleAdd} disabled={isOutOfStock}>
+            <button className={added ? 'added' : ''} onClick={handleAdd} disabled={isOutOfStock || authLoading || cartLoading || cartSaving || isAdding}>
               {isOutOfStock ? (
                 'Sold out'
+              ) : isAdding ? (
+                'Saving...'
               ) : added || atStockLimit ? (
                 <>
                   <Check size={16} /> Cart

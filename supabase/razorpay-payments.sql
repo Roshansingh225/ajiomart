@@ -262,6 +262,9 @@ begin
   ) as requested
   where product.id = requested.product_id;
 
+  delete from public.cart_items
+  where user_id = v_session.user_id;
+
   update public.payment_sessions
   set status = 'completed',
       razorpay_payment_id = p_razorpay_payment_id,

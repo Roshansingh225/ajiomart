@@ -72,6 +72,17 @@ create table if not exists public.order_items (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.cart_items (
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  product_id uuid not null references public.products(id) on delete cascade,
+  selected_color text not null,
+  selected_size text not null,
+  quantity integer not null check (quantity > 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, product_id, selected_size, selected_color)
+);
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -183,6 +194,7 @@ alter table public.profiles enable row level security;
 alter table public.products enable row level security;
 alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
+alter table public.cart_items enable row level security;
 
 drop policy if exists "Users can view own profile" on public.profiles;
 create policy "Users can view own profile"
@@ -277,6 +289,14 @@ create policy "Admins can manage order items"
 on public.order_items for all
 using (public.is_admin(auth.uid()))
 with check (public.is_admin(auth.uid()));
+
+drop policy if exists "Users can manage own cart" on public.cart_items;
+create policy "Users can manage own cart"
+on public.cart_items for all
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+grant select, insert, update, delete on public.cart_items to authenticated;
 
 drop policy if exists "Public product image access" on storage.objects;
 create policy "Public product image access"

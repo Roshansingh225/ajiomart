@@ -1,6 +1,7 @@
 import { Check, Heart, MessageCircle, ShoppingBag, Star } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext.jsx';
 import { useStore } from '../context/StoreContext.jsx';
 import { formatCurrency, getProductImages } from '../lib/catalog.js';
 import { STORE_WHATSAPP_NUMBER } from '../lib/contact.js';
@@ -8,7 +9,9 @@ import { STORE_WHATSAPP_NUMBER } from '../lib/contact.js';
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { products, cartItems, addToCart, wishlistIds, toggleWishlist } = useStore();
+  const location = useLocation();
+  const { user, loading: authLoading } = useAuth();
+  const { products, cartItems, addToCart, wishlistIds, toggleWishlist, cartLoading, cartSaving } = useStore();
   const product = products.find((item) => item.id === id);
   const isWishlisted = product ? wishlistIds.includes(product.id) : false;
   const isOutOfStock = product ? Number(product.stock) <= 0 : false;
@@ -21,6 +24,7 @@ export default function ProductDetail() {
   const [size, setSize] = useState('');
   const [color, setColor] = useState('');
   const [added, setAdded] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
     if (product) {
@@ -41,12 +45,21 @@ export default function ProductDetail() {
     );
   }
 
-  function handleAdd() {
+  async function handleAdd() {
+    if (!user) {
+      navigate('/auth', { state: { from: `${location.pathname}${location.search}` } });
+      return;
+    }
     if (added || atStockLimit) {
       navigate('/cart');
       return;
     }
-    if (addToCart(product, 1, { size, color })) setAdded(true);
+    setIsAdding(true);
+    try {
+      if (await addToCart(product, 1, { size, color })) setAdded(true);
+    } finally {
+      setIsAdding(false);
+    }
   }
 
   const whatsappText = encodeURIComponent(`Hello Ajiomart, I am interested in ${product.name}.`);
@@ -110,9 +123,11 @@ export default function ProductDetail() {
           {isOutOfStock ? 'Out of stock' : `${product.stock} available`}
         </p>
         <div className="button-row">
-          <button className={added ? 'button primary added-to-cart' : 'button primary'} onClick={handleAdd} disabled={isOutOfStock}>
+          <button className={added ? 'button primary added-to-cart' : 'button primary'} onClick={handleAdd} disabled={isOutOfStock || authLoading || cartLoading || cartSaving || isAdding}>
             {isOutOfStock ? (
               'Out of stock'
+            ) : isAdding ? (
+              'Saving to your cart...'
             ) : added || atStockLimit ? (
               <>
                 <Check size={18} /> Go to cart
