@@ -125,6 +125,7 @@ export function StoreProvider({ children }) {
   const activeUserIdRef = useRef(userId);
   activeUserIdRef.current = userId;
   const cartItems = cartOwnerId === userId ? storedCartItems : [];
+  const cartReady = !cartLoading && !authLoading && (!userId || cartOwnerId === userId);
 
   useEffect(() => {
     if (!hasSupabaseConfig) writeStorage(STORAGE_KEYS.products, products);
@@ -694,6 +695,7 @@ export function StoreProvider({ children }) {
       ordersLoading,
       cartLoading,
       cartSaving,
+      cartReady,
       cartError,
       storeError,
       productError,
@@ -712,7 +714,7 @@ export function StoreProvider({ children }) {
       refreshProducts,
       refreshOrders,
     }),
-    [products, orders, cartItems, wishlistIds, wishlistProducts, cartTotal, cartCount, productsLoading, ordersLoading, cartLoading, cartSaving, cartError, cartOwnerId, userId, authLoading, storeError, productError],
+    [products, orders, cartItems, wishlistIds, wishlistProducts, cartTotal, cartCount, productsLoading, ordersLoading, cartLoading, cartSaving, cartReady, cartError, cartOwnerId, userId, authLoading, storeError, productError],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

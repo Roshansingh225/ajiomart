@@ -1,22 +1,58 @@
 import { LogIn, UserPlus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useStore } from '../context/StoreContext.jsx';
 import { STORE_PHONE } from '../lib/contact.js';
 
 export default function Auth() {
   const { user, signIn, signUp } = useAuth();
+  const { products, productsLoading, cartReady, addToCart } = useStore();
   const location = useLocation();
   const navigate = useNavigate();
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
   const [message, setMessage] = useState('');
+  const resumeStarted = useRef(false);
+  const pendingCart = location.state?.pendingCart;
   const requestedDestination = location.state?.from;
   const destination = typeof requestedDestination === 'string' && requestedDestination.startsWith('/') && !requestedDestination.startsWith('//')
     ? requestedDestination
     : '/shop';
 
-  if (user) return <Navigate to={destination} replace />;
+  useEffect(() => {
+    if (!user) {
+      resumeStarted.current = false;
+      return;
+    }
+    if (!pendingCart || !cartReady || productsLoading || resumeStarted.current) return;
+    resumeStarted.current = true;
+    const product = products.find((item) => item.id === pendingCart.productId);
+
+    if (!product) {
+      setMessage('You are signed in, but this product is no longer available.');
+      navigate(destination, { replace: true });
+      return;
+    }
+
+    setMessage('Adding your item to the saved cart...');
+    addToCart(product, Number(pendingCart.quantity) || 1, {
+      size: pendingCart.size,
+      color: pendingCart.color,
+    }).then((saved) => {
+      if (saved) {
+        navigate('/cart', { replace: true });
+        return;
+      }
+      setMessage('You are signed in, but the item could not be added. Please try again.');
+      navigate(destination, { replace: true });
+    });
+  }, [user, pendingCart, cartReady, productsLoading, products, addToCart, navigate, destination]);
+
+  if (user && !pendingCart) return <Navigate to={destination} replace />;
+  if (user && pendingCart) {
+    return <section className="page" role="status">{message || 'Preparing your account cart...'}</section>;
+  }
 
   function update(field, value) {
     const nextValue = field === 'phone' ? value.replace(/\D/g, '').slice(0, 10) : value;
@@ -30,13 +66,15 @@ export default function Auth() {
       if (mode === 'signup') {
         const result = await signUp(form);
         if (result?.role) {
-          navigate(destination, { replace: true });
+          if (pendingCart) setMessage('Account created. Adding your item to the saved cart...');
+          else navigate(destination, { replace: true });
           return;
         }
         setMessage('Check your email to confirm your account, then log in to continue.');
       } else {
         await signIn(form);
-        navigate(destination, { replace: true });
+        if (pendingCart) setMessage('Signed in. Adding your item to the saved cart...');
+        else navigate(destination, { replace: true });
       }
     } catch (error) {
       setMessage(error.message);

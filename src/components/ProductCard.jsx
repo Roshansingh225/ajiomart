@@ -9,7 +9,7 @@ export default function ProductCard({ product, className = '' }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading: authLoading } = useAuth();
-  const { addToCart, cartItems, wishlistIds, toggleWishlist, cartLoading, cartSaving } = useStore();
+  const { addToCart, cartItems, wishlistIds, toggleWishlist, cartLoading, cartSaving, cartReady } = useStore();
   const [added, setAdded] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const isWishlisted = wishlistIds.includes(product.id);
@@ -21,7 +21,17 @@ export default function ProductCard({ product, className = '' }) {
 
   async function handleAdd() {
     if (!user) {
-      navigate('/auth', { state: { from: `${location.pathname}${location.search}` } });
+      navigate('/auth', {
+        state: {
+          from: `${location.pathname}${location.search}`,
+          pendingCart: {
+            productId: product.id,
+            quantity: 1,
+            size: product.sizes?.[0] || 'One size',
+            color: product.colors?.[0] || 'Default',
+          },
+        },
+      });
       return;
     }
     if (added || atStockLimit) {
@@ -71,7 +81,7 @@ export default function ProductCard({ product, className = '' }) {
             >
               <Heart size={17} fill={isWishlisted ? 'currentColor' : 'none'} />
             </button>
-            <button className={added ? 'added' : ''} onClick={handleAdd} disabled={isOutOfStock || authLoading || cartLoading || cartSaving || isAdding}>
+            <button className={added ? 'added' : ''} onClick={handleAdd} disabled={isOutOfStock || authLoading || cartLoading || !cartReady || cartSaving || isAdding}>
               {isOutOfStock ? (
                 'Sold out'
               ) : isAdding ? (

@@ -11,7 +11,7 @@ export default function ProductDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading: authLoading } = useAuth();
-  const { products, cartItems, addToCart, wishlistIds, toggleWishlist, cartLoading, cartSaving } = useStore();
+  const { products, cartItems, addToCart, wishlistIds, toggleWishlist, cartLoading, cartSaving, cartReady } = useStore();
   const product = products.find((item) => item.id === id);
   const isWishlisted = product ? wishlistIds.includes(product.id) : false;
   const isOutOfStock = product ? Number(product.stock) <= 0 : false;
@@ -47,7 +47,12 @@ export default function ProductDetail() {
 
   async function handleAdd() {
     if (!user) {
-      navigate('/auth', { state: { from: `${location.pathname}${location.search}` } });
+      navigate('/auth', {
+        state: {
+          from: `${location.pathname}${location.search}`,
+          pendingCart: { productId: product.id, quantity: 1, size, color },
+        },
+      });
       return;
     }
     if (added || atStockLimit) {
@@ -123,7 +128,7 @@ export default function ProductDetail() {
           {isOutOfStock ? 'Out of stock' : `${product.stock} available`}
         </p>
         <div className="button-row">
-          <button className={added ? 'button primary added-to-cart' : 'button primary'} onClick={handleAdd} disabled={isOutOfStock || authLoading || cartLoading || cartSaving || isAdding}>
+          <button className={added ? 'button primary added-to-cart' : 'button primary'} onClick={handleAdd} disabled={isOutOfStock || authLoading || cartLoading || !cartReady || cartSaving || isAdding}>
             {isOutOfStock ? (
               'Out of stock'
             ) : isAdding ? (
