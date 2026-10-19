@@ -147,6 +147,17 @@ export default function CartCheckout() {
       return false;
     }
 
+    const phoneDigits = shipping.customerPhone.replace(/\D/g, '');
+    const indianPhone = phoneDigits.length === 12 && phoneDigits.startsWith('91')
+      ? phoneDigits.slice(2)
+      : phoneDigits.length === 11 && phoneDigits.startsWith('0')
+        ? phoneDigits.slice(1)
+        : phoneDigits;
+    if (!/^[6-9]\d{9}$/.test(indianPhone)) {
+      setStatus('Enter a valid 10-digit Indian mobile number.');
+      return false;
+    }
+
     return true;
   }
 
