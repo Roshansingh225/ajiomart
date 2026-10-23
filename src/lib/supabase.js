@@ -24,6 +24,19 @@ export const supabase = hasSupabaseConfig
     })
   : null;
 
+export async function getFunctionErrorMessage(error, data) {
+  if (data?.error) return data.error;
+  if (error?.context?.json) {
+    try {
+      const payload = await error.context.json();
+      if (payload?.error) return payload.error;
+    } catch {
+      // Preserve the SDK message if the response body is unavailable.
+    }
+  }
+  return error?.message || 'The server request failed.';
+}
+
 export function dbProductToProduct(product) {
   if (!product) return product;
 
@@ -41,6 +54,7 @@ export function dbProductToProduct(product) {
     sizes: product.sizes || [],
     imageUrls: product.image_urls || [],
     description: product.description,
+    hsnCode: product.hsn_code || '',
     active: product.active,
     createdAt: product.created_at,
     updatedAt: product.updated_at,
@@ -61,6 +75,7 @@ export function productToDbProduct(product) {
     sizes: product.sizes || [],
     image_urls: product.imageUrls || [],
     description: product.description || '',
+    hsn_code: product.hsnCode || '',
     active: product.active ?? true,
   };
 }
@@ -105,6 +120,13 @@ export function dbOrderToOrder(order) {
     trackingNumber: order.tracking_number || '',
     trackingUrl: order.tracking_url || '',
     trackingNote: order.tracking_note || '',
+    delhiveryStatus: order.delhivery_status || '',
+    delhiveryTrackingEvents: Array.isArray(order.delhivery_tracking_events) ? order.delhivery_tracking_events : [],
+    packageWeightG: Number(order.package_weight_g) || '',
+    packageLengthCm: Number(order.package_length_cm) || '',
+    packageWidthCm: Number(order.package_width_cm) || '',
+    packageHeightCm: Number(order.package_height_cm) || '',
+    eWaybill: order.e_waybill || '',
     createdAt: order.created_at,
     updatedAt: order.updated_at,
   };

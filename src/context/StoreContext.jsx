@@ -78,6 +78,11 @@ function orderUpdatesToDb(updates) {
   if ('trackingNumber' in updates) payload.tracking_number = updates.trackingNumber || null;
   if ('trackingUrl' in updates) payload.tracking_url = updates.trackingUrl || null;
   if ('trackingNote' in updates) payload.tracking_note = updates.trackingNote || '';
+  if ('packageWeightG' in updates) payload.package_weight_g = Number(updates.packageWeightG) || null;
+  if ('packageLengthCm' in updates) payload.package_length_cm = Number(updates.packageLengthCm) || null;
+  if ('packageWidthCm' in updates) payload.package_width_cm = Number(updates.packageWidthCm) || null;
+  if ('packageHeightCm' in updates) payload.package_height_cm = Number(updates.packageHeightCm) || null;
+  if ('eWaybill' in updates) payload.e_waybill = updates.eWaybill || null;
 
   return payload;
 }

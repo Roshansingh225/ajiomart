@@ -47,3 +47,18 @@ update public.profiles
 set role = 'admin'
 where email = 'admin@ajiomart.com';
 ```
+
+## Delhivery Shipping
+
+Run [supabase/delhivery-shipping.sql](./supabase/delhivery-shipping.sql) in the Supabase SQL Editor after the schema and Razorpay SQL. Deploy the `delhivery-create-shipment` and `delhivery-track-shipment` Edge Functions. Set the following as Supabase Edge Function secrets only; never add the Delhivery API token to `.env.local`, Vercel browser variables, or frontend code:
+
+```txt
+DELHIVERY_API_TOKEN=<Delhivery API token>
+DELHIVERY_ENV=production
+DELHIVERY_CLIENT_NAME=<exact registered Delhivery client name>
+DELHIVERY_PICKUP_LOCATION=<exact registered warehouse name, including case>
+```
+
+Deploy with `npx supabase functions deploy delhivery-create-shipment delhivery-track-shipment --project-ref <project-ref>`.
+
+If seller identity/GST is not already configured in Delhivery, also set `DELHIVERY_SELLER_NAME`, `DELHIVERY_SELLER_ADDRESS`, and `DELHIVERY_SELLER_GSTIN` as Edge Function secrets. In Admin, add an HSN code to each product and enter packed weight and parcel dimensions on each order before creating its live shipment. Add an E-way bill for orders above ₹50,000. The shipment button is admin-only and asks for confirmation. Customers and admins can refresh Delhivery scan history from order tracking.

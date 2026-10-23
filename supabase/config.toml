@@ -5,3 +5,9 @@ verify_jwt = true
 
 [functions.verify-razorpay-payment]
 verify_jwt = true
+
+[functions.delhivery-create-shipment]
+verify_jwt = true
+
+[functions.delhivery-track-shipment]
+verify_jwt = true

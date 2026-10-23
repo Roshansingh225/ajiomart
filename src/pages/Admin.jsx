@@ -1,9 +1,10 @@
-import { ClipboardList, ImagePlus, LayoutDashboard, Package, Save, Shirt, Trash2, X } from 'lucide-react';
+import { ClipboardList, ImagePlus, LayoutDashboard, Package, PackageCheck, RefreshCw, Save, Shirt, Trash2, Truck, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useStore } from '../context/StoreContext.jsx';
 import { categories, formatCurrency, makeId, orderStatuses, prettyStatus } from '../lib/catalog.js';
 import { MAX_PRODUCT_IMAGES, MAX_PRODUCT_IMAGE_SIZE, PRODUCT_IMAGE_MIME_TYPES } from '../lib/productImages.js';
+import { getFunctionErrorMessage, supabase } from '../lib/supabase.js';
 
 const emptyProduct = {
   id: '',
@@ -18,16 +19,18 @@ const emptyProduct = {
   colors: 'Black, Ivory',
   sizes: 'S, M, L',
   description: '',
+  hsnCode: '',
 };
 
 export default function Admin() {
   const { users } = useAuth();
-  const { products, orders, saveProduct, deleteProduct, updateOrder, deleteOrder } = useStore();
+  const { products, orders, saveProduct, deleteProduct, updateOrder, deleteOrder, refreshOrders } = useStore();
   const [view, setView] = useState('catalog');
   const [form, setForm] = useState(emptyProduct);
   const [imageItems, setImageItems] = useState([]);
   const [savingProduct, setSavingProduct] = useState(false);
   const [message, setMessage] = useState('');
+  const [shippingActionOrderId, setShippingActionOrderId] = useState('');
   const previewUrls = useRef(new Set());
 
   useEffect(
@@ -145,6 +148,7 @@ export default function Admin() {
       colors: product.colors?.join(', ') || '',
       sizes: product.sizes?.join(', ') || '',
       description: product.description || '',
+      hsnCode: product.hsnCode || '',
     });
     setMessage(`Editing ${product.name}.`);
   }
@@ -177,6 +181,49 @@ export default function Admin() {
       setMessage('Order deleted.');
     } catch (error) {
       setMessage(error.message);
+    }
+  }
+
+  async function handleCreateShipment(order) {
+    if (!supabase) {
+      setMessage('Delhivery shipment creation requires the connected Supabase project.');
+      return;
+    }
+    if (!window.confirm(`Create a live Delhivery shipment for order ${order.id.slice(0, 10)}?`)) return;
+
+    setShippingActionOrderId(order.id);
+    setMessage('Creating Delhivery shipment...');
+    try {
+      const { data, error } = await supabase.functions.invoke('delhivery-create-shipment', {
+        body: { orderId: order.id },
+      });
+      if (error) throw new Error(await getFunctionErrorMessage(error, data));
+      if (data?.error) throw new Error(data.error);
+      await refreshOrders();
+      setMessage(`Delhivery shipment created. AWB ${data.waybill}.`);
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setShippingActionOrderId('');
+    }
+  }
+
+  async function handleRefreshShipment(order) {
+    if (!supabase) return;
+    setShippingActionOrderId(order.id);
+    setMessage('Refreshing Delhivery tracking...');
+    try {
+      const { data, error } = await supabase.functions.invoke('delhivery-track-shipment', {
+        body: { orderId: order.id },
+      });
+      if (error) throw new Error(await getFunctionErrorMessage(error, data));
+      if (data?.error) throw new Error(data.error);
+      await refreshOrders();
+      setMessage(`Tracking updated: ${data.status || 'latest scan received'}.`);
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setShippingActionOrderId('');
     }
   }
 
@@ -301,6 +348,16 @@ export default function Admin() {
                 <label>
                   Description
                   <textarea value={form.description} onChange={(event) => update('description', event.target.value)} required />
+                </label>
+                <label>
+                  HSN code
+                  <input
+                    value={form.hsnCode}
+                    onChange={(event) => update('hsnCode', event.target.value.replace(/\D/g, '').slice(0, 8))}
+                    inputMode="numeric"
+                    maxLength={8}
+                    placeholder="Required for Delhivery shipping"
+                  />
                 </label>
                 <div className="admin-image-manager">
                   <div className="admin-image-manager-heading">
@@ -455,6 +512,26 @@ export default function Admin() {
                     </div>
                     <div className="tracking-form-grid">
                       <label>
+                        Parcel weight (g)
+                        <input type="number" min="1" value={order.packageWeightG || ''} onChange={(event) => updateOrderField(order, 'packageWeightG', event.target.value)} />
+                      </label>
+                      <label>
+                        Parcel length (cm)
+                        <input type="number" min="0.1" step="0.1" value={order.packageLengthCm || ''} onChange={(event) => updateOrderField(order, 'packageLengthCm', event.target.value)} />
+                      </label>
+                      <label>
+                        Parcel width (cm)
+                        <input type="number" min="0.1" step="0.1" value={order.packageWidthCm || ''} onChange={(event) => updateOrderField(order, 'packageWidthCm', event.target.value)} />
+                      </label>
+                      <label>
+                        Parcel height (cm)
+                        <input type="number" min="0.1" step="0.1" value={order.packageHeightCm || ''} onChange={(event) => updateOrderField(order, 'packageHeightCm', event.target.value)} />
+                      </label>
+                      <label>
+                        E-way bill (required above ₹50,000)
+                        <input value={order.eWaybill || ''} onChange={(event) => updateOrderField(order, 'eWaybill', event.target.value)} />
+                      </label>
+                      <label>
                         Courier partner
                         <input value={order.courierPartner || ''} onChange={(event) => updateOrderField(order, 'courierPartner', event.target.value)} />
                       </label>
@@ -470,6 +547,27 @@ export default function Admin() {
                         Tracking note
                         <input value={order.trackingNote || ''} onChange={(event) => updateOrderField(order, 'trackingNote', event.target.value)} />
                       </label>
+                    </div>
+                    <div className="button-row admin-shipping-actions">
+                      {!order.trackingNumber && (
+                        <button
+                          className="button primary"
+                          disabled={shippingActionOrderId === order.id || order.status === 'cancelled'}
+                          onClick={() => handleCreateShipment(order)}
+                        >
+                          <Truck size={17} /> {shippingActionOrderId === order.id ? 'Working...' : 'Create Delhivery shipment'}
+                        </button>
+                      )}
+                      {order.trackingNumber && order.courierPartner === 'Delhivery' && (
+                        <button
+                          className="button secondary"
+                          disabled={shippingActionOrderId === order.id}
+                          onClick={() => handleRefreshShipment(order)}
+                        >
+                          <RefreshCw size={17} /> Refresh tracking
+                        </button>
+                      )}
+                      {order.delhiveryStatus && <span className="delhivery-status"><PackageCheck size={16} /> {order.delhiveryStatus}</span>}
                     </div>
                   </article>
                 ))}
