@@ -355,7 +355,7 @@ export default function CartCheckout() {
         {cartError && <p className="error" role="alert">{cartError}</p>}
         {!cartItems.length && (
           <div className="empty-state">
-            <p>Your cart is ready for dresses, makeup, skincare, shoes, and more.</p>
+            <p>Your cart is ready for dresses, jewellery, makeup, skincare, shoes, and more.</p>
             <Link className="button primary" to="/shop">
               Browse shop
             </Link>

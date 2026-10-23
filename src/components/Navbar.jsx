@@ -36,6 +36,7 @@ export default function Navbar() {
     ['Home', '/'],
     ['Shop', '/shop'],
     ['Collections', '/shop?category=Dresses'],
+    ['Jewellery', '/shop?category=Jewellery'],
     ['Lookbook', '/#lookbook'],
     ['About', '/#story'],
   ];
@@ -50,7 +51,7 @@ export default function Navbar() {
       <div className="promo-strip">
         <span>New season / The colour issue</span>
         <Link to="/shop">Explore the Ajiomart edit <ArrowRight size={14} /></Link>
-        <span>Fashion / Beauty / Everyday</span>
+        <span>Fashion / Beauty / Jewellery</span>
       </div>
       <header className={`site-header${onHome ? ' home-navbar' : ''}`}>
         <Brand onClick={() => setOpen(false)} />

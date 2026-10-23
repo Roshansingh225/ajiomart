@@ -14,6 +14,7 @@ export const categories = [
   'Skincare',
   'Fragrance',
   'Handbags',
+  'Jewellery',
   'Footwear',
   'Accessories',
 ];

@@ -234,7 +234,7 @@ export default function Admin() {
           <div className="admin-sidebar-top">
             <p className="eyebrow">Admin</p>
             <h1>Ajiomart Dashboard</h1>
-            <p>Manage fashion inventory, cosmetics stock, customer orders, and delivery tracking.</p>
+            <p>Manage fashion, jewellery, cosmetics, customer orders, and delivery tracking.</p>
           </div>
 
           <nav className="admin-nav">
@@ -253,7 +253,7 @@ export default function Admin() {
             <article className="admin-sidebar-card">
               <p className="eyebrow">Products</p>
               <strong>{products.length}</strong>
-              <span>Fashion and beauty items</span>
+              <span>Fashion, jewellery, and beauty items</span>
             </article>
             <article className="admin-sidebar-card">
               <p className="eyebrow">Orders</p>
@@ -281,7 +281,7 @@ export default function Admin() {
               </h2>
               <p>
                 {view === 'catalog'
-                  ? 'Add dresses, cosmetics, skincare, bags, shoes, and accessory drops.'
+                  ? 'Add dresses, jewellery, cosmetics, skincare, bags, shoes, and accessory drops.'
                   : view === 'orders'
                     ? 'Update order status, courier partner, tracking numbers, and customer notes.'
                     : 'Monitor products, stock, customers, and order value.'}
@@ -586,7 +586,7 @@ export default function Admin() {
               <article className="admin-card stat-card">
                 <p className="eyebrow">Inventory</p>
                 <h2>{metrics.stock}</h2>
-                <p>Units available across fashion and cosmetics categories.</p>
+                <p>Units available across fashion, jewellery, and cosmetics categories.</p>
               </article>
               <article className="admin-card stat-card">
                 <p className="eyebrow">Average order</p>

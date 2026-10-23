@@ -2253,7 +2253,7 @@ textarea:focus-visible {
 }
 
 .editorial-category-grid {
-  grid-template-columns: 1.16fr 0.84fr 1fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: end;
   gap: 18px;
 }
@@ -2265,11 +2265,11 @@ textarea:focus-visible {
 }
 
 .category-tile-dresses {
-  min-height: 510px;
+  min-height: 440px;
 }
 
 .category-tile-beauty {
-  min-height: 410px;
+  min-height: 440px;
 }
 
 .editorial-category-tile::after {
@@ -2956,7 +2956,7 @@ select,
   }
 
   .editorial-category-grid {
-    grid-template-columns: 1fr 0.82fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .editorial-category-tile,
@@ -2965,7 +2965,7 @@ select,
   }
 
   .category-tile-beauty {
-    min-height: 360px;
+    min-height: 420px;
   }
 
   .lookbook-section {
@@ -3068,8 +3068,7 @@ select,
   }
 
   .category-tile-dresses {
-    grid-column: 1 / -1;
-    min-height: 520px;
+    min-height: 380px;
   }
 
   .editorial-category-tile,
@@ -3226,7 +3225,7 @@ select,
   }
 
   .category-tile-dresses {
-    min-height: 440px;
+    min-height: 285px;
   }
 
   .editorial-category-tile,
@@ -3912,7 +3911,7 @@ body {
 }
 
 .editorial-category-grid {
-  grid-template-columns: 1.06fr 0.94fr 1fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -3923,11 +3922,29 @@ body {
 }
 
 .editorial-category-tile .category-copy strong {
+  display: block;
   font-family: "Cormorant Garamond", Georgia, serif;
-  font-size: 48px;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.editorial-category-tile .category-copy {
+  position: relative;
+  display: block;
+  padding: 1.25rem;
+}
+
+.editorial-category-tile .category-copy small {
+  display: block;
+  max-width: 100%;
+  padding-right: 3.5rem;
+  margin-top: 0.35rem;
 }
 
 .editorial-category-tile .category-arrow {
+  position: absolute;
+  right: 1.25rem;
+  bottom: 1.25rem;
   width: 44px;
   height: 44px;
   border-color: transparent;
@@ -4203,6 +4220,12 @@ body {
 @keyframes lookbookReveal {
   from { opacity: 0.3; transform: scale(1.06); }
   to { opacity: 1; transform: scale(1.02); }
+}
+
+@media (max-width: 1100px) {
+  .editorial-category-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 960px) {
@@ -4565,6 +4588,26 @@ body {
   .editorial-category-grid {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
+  }
+
+  .editorial-category-tile .category-copy {
+    padding: 1rem;
+  }
+
+  .editorial-category-tile .category-copy strong {
+    font-size: 23px;
+  }
+
+  .editorial-category-tile .category-copy small {
+    padding-right: 3rem;
+    font-size: 0.7rem;
+  }
+
+  .editorial-category-tile .category-arrow {
+    right: 1rem;
+    bottom: 1rem;
+    width: 34px;
+    height: 34px;
   }
 
   .lookbook-canvas {

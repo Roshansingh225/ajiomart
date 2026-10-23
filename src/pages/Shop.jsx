@@ -21,8 +21,8 @@ export default function Shop() {
   }, [searchParams]);
 
   const visibleCategories = useMemo(
-    () => ['All', ...categories.filter((item) => products.some((product) => product.category === item))],
-    [products],
+    () => ['All', ...categories],
+    [],
   );
 
   const filtered = useMemo(() => {
@@ -53,13 +53,13 @@ export default function Shop() {
     <section className="page">
       <div className="page-heading">
         <p className="eyebrow">Shop Ajiomart</p>
-        <h1>Dresses, cosmetics, and style pieces for your day.</h1>
+        <h1>Fashion, beauty, jewellery, and style pieces for your day.</h1>
       </div>
 
       <div className="filters">
         <label className="search-input">
           <Search size={18} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search dress, lipstick, serum..." />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search dresses, makeup, jewellery..." />
         </label>
         <div className="filter-row">
           <div className="chip-row">
@@ -83,7 +83,9 @@ export default function Shop() {
 
       {productsLoading && <p role="status">Loading the Ajiomart edit...</p>}
       {productError && <p className="error" role="alert">We couldn't load the shop right now. {productError}</p>}
-      {!productsLoading && !productError && !filtered.length && <p>No products matched your search.</p>}
+      {!productsLoading && !productError && !filtered.length && (
+        <p>{category === 'Jewellery' && !query ? 'The jewellery edit is being curated. Check back soon.' : 'No products matched your search.'}</p>
+      )}
       <div className="product-grid">
         {filtered.map((product) => (
           <ProductCard key={product.id} product={product} />

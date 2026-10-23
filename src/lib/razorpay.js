@@ -55,7 +55,7 @@ export async function openRazorpayCheckout({
       amount,
       currency,
       name: 'Ajiomart',
-      description: 'Ajiomart fashion and beauty order',
+      description: 'Ajiomart fashion, beauty, and jewellery order',
       prefill: {
         name: customer.name || '',
         email: customer.email || '',

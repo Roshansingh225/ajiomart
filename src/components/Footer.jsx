@@ -14,13 +14,13 @@ export default function Footer() {
             <span className="footer-eyebrow">THE AJIOMART EDIT</span>
             <h2>Feel good in what you wear.</h2>
           </div>
-          <p>Fresh fashion and beauty finds for all the little plans that make up your day.</p>
+          <p>Fresh fashion, beauty, and jewellery finds for all the little plans that make up your day.</p>
         </div>
 
         <div className="footer-main">
           <div className="footer-brand">
             <Brand />
-            <p>Style, beauty, and daily essentials selected to make getting ready feel like you.</p>
+            <p>Style, beauty, jewellery, and daily essentials selected to make getting ready feel like you.</p>
             <div className="footer-socials">
               <a href={whatsappUrl} target="_blank" rel="noreferrer" aria-label="Chat on WhatsApp">
                 <MessageCircle size={18} />
@@ -36,6 +36,7 @@ export default function Footer() {
             <Link to="/shop?category=Dresses">Dresses</Link>
             <Link to="/shop?category=Co-ords">Co-ords</Link>
             <Link to="/shop?category=Makeup">Makeup</Link>
+            <Link to="/shop?category=Jewellery">Jewellery</Link>
             <Link to="/shop?category=Skincare">Skincare</Link>
             <Link to="/shop?category=Footwear">Footwear</Link>
           </nav>
@@ -75,7 +76,7 @@ export default function Footer() {
           </div>
           <div>
             <Sparkles size={20} />
-            <span><strong>Fashion meets beauty</strong><small>One happy little edit</small></span>
+            <span><strong>Style, beauty & jewellery</strong><small>One happy little edit</small></span>
           </div>
           <div>
             <HeartHandshake size={20} />

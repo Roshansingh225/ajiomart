@@ -70,7 +70,7 @@ export default function Orders() {
     <section className="page">
       <div className="page-heading">
         <p className="eyebrow">My Orders</p>
-        <h1>Your fashion and beauty orders.</h1>
+        <h1>Your fashion, beauty, and jewellery orders.</h1>
       </div>
 
       <div className="order-history-list">
@@ -168,7 +168,7 @@ export default function Orders() {
 
       {!userOrders.length && (
         <div className="empty-state">
-          <p>No orders yet. Once you checkout, your dresses, cosmetics, and accessories will show here.</p>
+          <p>No orders yet. Once you checkout, your fashion, jewellery, cosmetics, and accessories will show here.</p>
         </div>
       )}
 

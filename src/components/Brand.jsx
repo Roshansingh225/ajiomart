@@ -9,7 +9,7 @@ export default function Brand({ onClick }) {
           <path className="brand-mark-accent" d="M26.5 8.2h2.2v2.2h-2.2z" />
         </svg>
       </span>
-      <span className="brand-name">Ajiomart<small>STYLE / BEAUTY / YOU</small></span>
+      <span className="brand-name">Ajiomart<small>STYLE / BEAUTY / JEWELLERY</small></span>
     </Link>
   );
 }

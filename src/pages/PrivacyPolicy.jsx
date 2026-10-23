@@ -14,7 +14,7 @@ export default function PrivacyPolicy() {
       <div className="legal-sections">
         <article>
           <p>
-            Ajiomart collects only the information needed to run a fashion and cosmetics shopping experience, including
+            Ajiomart collects only the information needed to run a fashion, jewellery, and cosmetics shopping experience, including
             account details, cart activity, delivery information, and order history.
           </p>
         </article>
@@ -31,7 +31,7 @@ export default function PrivacyPolicy() {
           <ul>
             <li>Create and manage your account</li>
             <li>Save your cart, orders, delivery details, and tracking updates</li>
-            <li>Improve product selection across fashion, cosmetics, and accessories</li>
+            <li>Improve product selection across fashion, jewellery, cosmetics, and accessories</li>
             <li>Respond to account, order, payment, and delivery support requests</li>
           </ul>
         </article>

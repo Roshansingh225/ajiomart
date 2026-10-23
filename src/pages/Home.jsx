@@ -38,6 +38,14 @@ const categoryTiles = [
     className: 'category-tile-accessories',
     index: '03',
   },
+  {
+    title: 'Jewellery',
+    copy: 'A little shine, made to feel like your own.',
+    category: 'Jewellery',
+    image: 'https://images.unsplash.com/photo-1611652022419-a9419f74343d?auto=format&fit=crop&w=1200&q=85',
+    className: 'category-tile-jewellery',
+    index: '04',
+  },
 ];
 
 const lookbookStories = [
@@ -61,6 +69,13 @@ const lookbookStories = [
     note: 'One last detail. Then, out the door.',
     image: '/ajiomart-lookbook-handbag.jpg',
     number: '03',
+  },
+  {
+    category: 'Jewellery',
+    title: 'The finishing touch',
+    note: 'Small details. Entirely your signature.',
+    image: 'https://images.unsplash.com/photo-1611652022419-a9419f74343d?auto=format&fit=crop&w=1600&q=85',
+    number: '04',
   },
 ];
 
@@ -165,12 +180,12 @@ export default function Home() {
         </div>
         <div className="hero-topline">
           <span>The Ajiomart colour edit</span>
-          <span>Fashion / Beauty / 2026</span>
+          <span>Fashion / Beauty / Jewellery / 2026</span>
         </div>
         <div className="hero-content">
           <p className="eyebrow">New season / Ajiomart</p>
           <h1>Dress in<br /><em>full colour.</em></h1>
-          <p>Expressive fashion and beauty for every mood, moment, and mirror.</p>
+          <p>Expressive fashion, beauty, and jewellery for every mood, moment, and mirror.</p>
           <div className="hero-actions">
             <Link className="button hero-button" to="/shop">
               Explore the edit <ArrowRight size={18} />
@@ -180,19 +195,19 @@ export default function Home() {
         <p className="hero-side-note">Colour for every version of you</p>
         <div className="hero-bottomline">
           <div className="hero-promises">
-            <span><Sparkles size={16} /><span><strong>Fashion + beauty</strong>One considered edit</span></span>
+            <span><Sparkles size={16} /><span><strong>Style + beauty + jewellery</strong>One considered edit</span></span>
             <span><Heart size={16} /><span><strong>Made for expression</strong>Find your own colour</span></span>
           </div>
           <span className="hero-scroll-cue">Scroll to explore <ArrowDownRight size={17} /></span>
         </div>
       </section>
 
-      <div className="editorial-ribbon" aria-label="Ajiomart fashion and beauty">
+      <div className="editorial-ribbon" aria-label="Ajiomart fashion, beauty, and jewellery">
         <span><Sparkles size={16} /> The colour issue</span>
         <i />
         <span>Wear it your way</span>
         <i />
-        <span>Beauty in every detail</span>
+        <span>Beauty and jewellery in every detail</span>
         <i />
         <span><Heart size={15} /> Made to move with you</span>
       </div>
@@ -253,7 +268,7 @@ export default function Home() {
               data-reveal
             >
               <img src={tile.image} alt={tile.title} loading="lazy" decoding="async" />
-              <span className="category-index">{tile.index} / 03</span>
+              <span className="category-index">{tile.index} / {String(categoryTiles.length).padStart(2, '0')}</span>
               <span className="category-copy">
                 <strong>{tile.title}</strong>
                 <small>{tile.copy}</small>
@@ -332,14 +347,14 @@ export default function Home() {
         <div className="brand-story-copy" data-reveal>
           <p className="eyebrow">Stories behind the seams</p>
           <h2>Wear what<br /><em>moves you.</em></h2>
-          <p>Every piece starts with a feeling. Find the clothes, colours, and little rituals that make getting ready feel like your own.</p>
-          <Link className="text-link" to="/shop">Explore fashion & beauty <ArrowRight size={17} /></Link>
+          <p>Every piece starts with a feeling. Find the clothes, colours, jewellery, and little rituals that make getting ready feel like your own.</p>
+          <Link className="text-link" to="/shop">Explore fashion, beauty & jewellery <ArrowRight size={17} /></Link>
           <div className="brand-story-signoff">Ajiomart <span>Curated for your everyday.</span></div>
         </div>
       </section>
 
       <section className="home-service-strip" data-reveal>
-        <div><Sparkles size={19} /><span><strong>Fashion + beauty</strong>One thoughtful edit</span></div>
+        <div><Sparkles size={19} /><span><strong>Style + beauty + jewellery</strong>One thoughtful edit</span></div>
         <div><Truck size={20} /><span><strong>Order tracking</strong>From dispatch to doorstep</span></div>
         <Link to="/shop">Find your next favourite <ArrowRight size={17} /></Link>
       </section>

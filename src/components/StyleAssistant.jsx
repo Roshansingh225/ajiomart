@@ -6,11 +6,11 @@ import { formatCurrency } from '../lib/catalog.js';
 const starterMessages = [
   {
     role: 'assistant',
-    content: 'Hi, I am the Ajiomart style assistant. Tell me the plan and I will suggest fashion and beauty picks.',
+    content: 'Hi, I am the Ajiomart style assistant. Tell me the plan and I will suggest fashion, beauty, and jewellery picks.',
   },
 ];
 
-const quickPrompts = ['Office outfit', 'Wedding guest look', 'Everyday glow kit'];
+const quickPrompts = ['Office outfit', 'Wedding guest look', 'Jewellery finishing touch', 'Everyday glow kit'];
 
 export default function StyleAssistant() {
   const { products } = useStore();
@@ -25,6 +25,7 @@ export default function StyleAssistant() {
       skincare: products.find((product) => product.category === 'Skincare'),
       bag: products.find((product) => product.category === 'Handbags'),
       shoes: products.find((product) => product.category === 'Footwear'),
+      jewellery: products.find((product) => product.category === 'Jewellery'),
     }),
     [products],
   );
@@ -36,15 +37,22 @@ export default function StyleAssistant() {
       return `For work, try ${grouped.bag?.name || 'a structured handbag'} with tailored separates and a clean lip. Keep the palette calm, then add ${grouped.shoes?.name || 'comfortable sneakers'} for an easy commute.`;
     }
 
+    if (lower.includes('jewel') || lower.includes('accessor')) {
+      return grouped.jewellery
+        ? `${grouped.jewellery.name} at ${formatCurrency(grouped.jewellery.price)} is a lovely finishing touch. Pair it with a clean neckline and keep the rest of your look simple.`
+        : 'A delicate necklace or a pair of sculptural earrings can finish the look. Our jewellery edit is being curated now.';
+    }
+
     if (lower.includes('wedding') || lower.includes('party') || lower.includes('evening')) {
-      return `For an event look, start with ${grouped.dress?.name || 'a satin dress'} at ${formatCurrency(grouped.dress?.price)} and finish with a berry lip from ${grouped.makeup?.name || 'the lip wardrobe'}.`;
+      const jewelleryFinish = grouped.jewellery ? ` Add ${grouped.jewellery.name} at ${formatCurrency(grouped.jewellery.price)} for a finishing touch.` : '';
+      return `For an event look, start with ${grouped.dress?.name || 'a satin dress'} at ${formatCurrency(grouped.dress?.price)} and finish with a berry lip from ${grouped.makeup?.name || 'the lip wardrobe'}.${jewelleryFinish}`;
     }
 
     if (lower.includes('skin') || lower.includes('glow') || lower.includes('beauty')) {
       return `For a fresh glow, use ${grouped.skincare?.name || 'a serum kit'} before makeup, then choose a soft coral lip and a light fragrance.`;
     }
 
-    return 'I would build your look around one hero piece, one comfort piece, and one beauty finish. Dresses plus skincare are a strong Ajiomart pairing right now.';
+    return 'I would build your look around one hero piece, one comfort piece, and one beauty or jewellery finish. Dresses, makeup, and jewellery make an easy Ajiomart pairing.';
   }
 
   function askAssistant(prompt) {
